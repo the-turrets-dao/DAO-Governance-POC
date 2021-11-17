@@ -1,2 +1,2 @@
 # governance
-Things that we deed to setup and govern the DAO
+Things that we need to setup and govern the DAO
