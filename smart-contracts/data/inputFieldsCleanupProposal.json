@@ -1,0 +1,8 @@
+[
+    {
+        "name": "proposalAccount",
+        "type": "string",
+        "description": "Account id of the proposal account.",
+        "rule": "Required"
+    }
+]

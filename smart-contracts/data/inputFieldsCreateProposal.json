@@ -1,0 +1,38 @@
+[
+    {
+        "name": "daoToml",
+        "type": "string",
+        "description": "Link to dao.toml",
+        "rule": "Required"
+    },
+    {
+        "name": "source",
+        "type": "string",
+        "description": "Account id of proposer, which will be used to fund ephemeral accounts.",
+        "rule": "Required"
+    },
+    {
+        "name": "proposalSecret",
+        "type": "string",
+        "description": "Secret key for proposal account.",
+        "rule": "Required"
+    },
+    {
+        "name": "tallySecret",
+        "type": "string",
+        "description": "Secret key for tally account.",
+        "rule": "Required"
+    },
+    {
+        "name": "tallyContractSigners",
+        "type": "string",
+        "description": "List of turret contract signers of the tally contract (comma separated).",
+        "rule": "Required"
+    },
+    {
+        "name": "IpfsProposalAddr",
+        "type": "string",
+        "description": "Address of Proposal Data Structure",
+        "rule": "Optional"
+    }
+]
