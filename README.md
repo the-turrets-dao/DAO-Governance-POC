@@ -1,2 +1,3 @@
-# governance
-Things that we need to setup and govern the DAO
+# POC for DAO governance based on stellar smart contracts
+
+
