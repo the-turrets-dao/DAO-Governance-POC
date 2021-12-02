@@ -59,26 +59,26 @@ module.exports = async (body) => {
     const maximumVotingDuration = 300; // seconds
     const quorum = 40000;
     // end test data
-    
+
     const nrOfSignersForProposalAccount = proposalTurretSigners.length + tallyTurretSigners.length + 1; // doa key
     const nrOfTrustlinesForProposalAccount = 0;
-    const nrOfDataEntriesForProposalAccount = 6;
+    const nrOfDataEntriesForProposalAccount = 7;
     const minBalanceProposalAccount = getMinBalance(nrOfSignersForProposalAccount, nrOfTrustlinesForProposalAccount, nrOfDataEntriesForProposalAccount);
 
     const nrOfSignersForTallyAccount = proposalTurretSigners.length + tallyTurretSigners.length + 2; // dao key + proposal account key
     const nrOfTrustlinesForTallyAccount = nrOfOptions;
     const nrOfDataEntriesForTallyAccount = 0;
     const minBalanceTallyAccount = getMinBalance(nrOfSignersForTallyAccount, nrOfTrustlinesForTallyAccount, nrOfDataEntriesForTallyAccount);
-    
+
     const fee = await getFee();
 
     const sourceAccount = await server.loadAccount(source);
-    
+
     const totalFeeCost = ((2 * proposalTurretSigners.length + 2 * tallyTurretSigners.length + 3 + nrOfOptions * 2) * fee) / 10000000;
     const totalCost = totalFeeCost + minBalanceProposalAccount + minBalanceTallyAccount;
-	console.log("total cost: ", totalCost);
-	// todo: check if source has enough funds;
-	
+    console.log("total cost: ", totalCost);
+    // todo: check if source has enough funds;
+
     let transaction = new TransactionBuilder(sourceAccount, {
         fee,
         networkPassphrase: Networks[STELLAR_NETWORK]
@@ -138,6 +138,13 @@ module.exports = async (body) => {
         source: proposalAccountId,
         name: "proposalData",
         value: IpfsProposalAddr
+    }));
+
+    // add tally account to data
+    transaction.addOperation(Operation.manageData({
+        source: proposalAccountId,
+        name: "tallyAccount",
+        value: tallyAccountId
     }));
 
 
