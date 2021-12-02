@@ -24,17 +24,11 @@
         "rule": "Required"
     },
     {
-        "name": "tallyContractSigners",
+        "name": "turretSigners",
         "type": "string",
-        "description": "List of turret contract signers of the tally contract (comma separated).",
+        "description": "List of turret contract signers of the proposal account.",
         "rule": "Required"
-    },
-    {
-        "name": "proposalContractSigners",
-        "type": "string",
-        "description": "List of turret contract signers of the proposal contract (comma separated).",
-        "rule": "Required"
-    },
+    }
     {
         "name": "IpfsProposalAddr",
         "type": "string",

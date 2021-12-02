@@ -16,8 +16,7 @@ module.exports = async (body) => {
         daoToml,
         proposalSecret,
         tallySecret,
-        tallyContractSigners,
-        proposalContractSigners,
+        turretSigners,
         IpfsProposalAddr
     } = body
 
@@ -26,29 +25,13 @@ module.exports = async (body) => {
 
     const tallyKeypair = Keypair.fromSecret(tallySecret);
     const tallyAccountId = tallyKeypair.publicKey();
-    const tallyTurretSigners = tallyContractSigners.split(',').map(function(item) {
+    const turretContractSigners = turretSigners.split(',').map(function(item) {
         return item.trim();
     });;
 
-    if (tallyTurretSigners.length < 3) {
+    if (turretContractSigners.length < 3) {
         throw {
-            message: 'Not enough tally turret contract signers.'
-        }
-    }
-
-    const proposalTurretSigners = proposalContractSigners.split(',').map(function(item) {
-        return item.trim();
-    });;
-
-    if (proposalTurretSigners.length < 3) {
-        throw {
-            message: 'Not enough proposal turret contract signers.'
-        }
-    }
-
-    if (tallyTurretSigners.length != proposalTurretSigners.length) {
-        throw {
-            message: 'Number of proposal turret contract signers and tally turret contract signers must be the same.'
+            message: 'Not enough turret contract signers.'
         }
     }
 
@@ -60,12 +43,12 @@ module.exports = async (body) => {
     const quorum = 40000;
     // end test data
 
-    const nrOfSignersForProposalAccount = proposalTurretSigners.length + tallyTurretSigners.length + 1; // doa key
+    const nrOfSignersForProposalAccount = turretContractSigners.length + 1; // doa key
     const nrOfTrustlinesForProposalAccount = 0;
     const nrOfDataEntriesForProposalAccount = 7;
     const minBalanceProposalAccount = getMinBalance(nrOfSignersForProposalAccount, nrOfTrustlinesForProposalAccount, nrOfDataEntriesForProposalAccount);
 
-    const nrOfSignersForTallyAccount = proposalTurretSigners.length + tallyTurretSigners.length + 2; // dao key + proposal account key
+    const nrOfSignersForTallyAccount = 2; // dao key + proposal account key
     const nrOfTrustlinesForTallyAccount = nrOfOptions;
     const nrOfDataEntriesForTallyAccount = 0;
     const minBalanceTallyAccount = getMinBalance(nrOfSignersForTallyAccount, nrOfTrustlinesForTallyAccount, nrOfDataEntriesForTallyAccount);
@@ -74,7 +57,7 @@ module.exports = async (body) => {
 
     const sourceAccount = await server.loadAccount(source);
 
-    const totalFeeCost = ((2 * proposalTurretSigners.length + 2 * tallyTurretSigners.length + 3 + nrOfOptions * 2) * fee) / 10000000;
+    const totalFeeCost = ((nrOfSignersForProposalAccount + nrOfSignersForTallyAccount + nrOfOptions * 2) * fee) / 10000000;
     const totalCost = totalFeeCost + minBalanceProposalAccount + minBalanceTallyAccount;
     console.log("total cost: ", totalCost);
     // todo: check if source has enough funds;
@@ -148,73 +131,22 @@ module.exports = async (body) => {
     }));
 
 
-    // add signers to proposal and tally account: 
-    // signers are: proposal turret signers + tally turret signers + dao public key
-    // for the tally account also the proposal account should be a signer
-    const thresholdsValue = proposalTurretSigners.length * 2;
+    // add signers to proposal account: 
+    // turret signers + dao public key
+    const proposalAccountThresholdsValue = turretContractSigners.length - 1;
 
-    for (const tallyTurretSigner of tallyTurretSigners) {
-
-        transaction.addOperation(Operation.setOptions({
-            source: proposalAccountId,
-            signer: {
-                ed25519PublicKey: tallyTurretSigner,
-                weight: 2
-            }
-        }));
-
-        transaction.addOperation(Operation.setOptions({
-            source: tallyAccountId,
-            signer: {
-                ed25519PublicKey: tallyTurretSigner,
-                weight: 2
-            }
-        }));
-    }
-
-    for (const proposalTurretSigner of proposalTurretSigners) {
+    for (const turretSigner of turretContractSigners) {
 
         transaction.addOperation(Operation.setOptions({
             source: proposalAccountId,
             signer: {
-                ed25519PublicKey: proposalTurretSigner,
-                weight: 2
-            }
-        }));
-
-        transaction.addOperation(Operation.setOptions({
-            source: tallyAccountId,
-            signer: {
-                ed25519PublicKey: proposalTurretSigner,
-                weight: 2
+                ed25519PublicKey: turretSigner,
+                weight: 1
             }
         }));
     }
 
-    // add proposal account as a "zero" signer to the tally account
-    transaction.addOperation(Operation.setOptions({
-        source: tallyAccountId,
-        signer: {
-            ed25519PublicKey: proposalAccountId,
-            weight: 1
-        }
-    }));
-
-    // add dao public key as a "zero" signer to the tally account
-    // also remove the master key as a signer
-    transaction.addOperation(Operation.setOptions({
-        source: tallyAccountId,
-        signer: {
-            ed25519PublicKey: daoPublicKey,
-            weight: 1
-        },
-        masterWeight: 0,
-        lowThreshold: thresholdsValue,
-        medThreshold: thresholdsValue,
-        highThreshold: thresholdsValue
-    }));
-
-    // add dao public key as a "zero" signer to the proposal account
+    // add dao public key as a signer to the proposal account
     // also remove the master key as a signer
     transaction.addOperation(Operation.setOptions({
         source: proposalAccountId,
@@ -223,11 +155,36 @@ module.exports = async (body) => {
             weight: 1
         },
         masterWeight: 0,
-        lowThreshold: thresholdsValue,
-        medThreshold: thresholdsValue,
-        highThreshold: thresholdsValue,
-        setFlags: 3 // Auth required, auth revocable
+        lowThreshold: proposalAccountThresholdsValue,
+        medThreshold: proposalAccountThresholdsValue,
+        highThreshold: proposalAccountThresholdsValue,
+        setFlags: 3 // Auth required, auth revocable (allow trust)
     }));
+
+
+    // add proposal account signer to the tally account
+    transaction.addOperation(Operation.setOptions({
+        source: tallyAccountId,
+        signer: {
+            ed25519PublicKey: proposalAccountId,
+            weight: 1
+        }
+    }));
+
+    // add dao public key as a signer to the tally account
+    // also remove the master key as a signer
+    transaction.addOperation(Operation.setOptions({
+        source: tallyAccountId,
+        signer: {
+            ed25519PublicKey: daoPublicKey,
+            weight: 1
+        },
+        masterWeight: 0,
+        lowThreshold: 5,
+        medThreshold: 5,
+        highThreshold: 5
+    }));
+
 
     // let tally account trust vote assets issued by proposal account
     // allow trust only to tally account
