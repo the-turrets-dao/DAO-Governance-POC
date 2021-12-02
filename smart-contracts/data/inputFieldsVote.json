@@ -1,6 +1,12 @@
 [
     {
-        "name": "proposalAccount",
+        "name": "voterAccountId",
+        "type": "string",
+        "description": "Account id of the voter.",
+        "rule": "Required"
+    },
+    {
+        "name": "proposalAccountId",
         "type": "string",
         "description": "Account id of the proposal account.",
         "rule": "Required"

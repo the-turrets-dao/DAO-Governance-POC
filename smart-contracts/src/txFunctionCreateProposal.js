@@ -55,28 +55,91 @@ module.exports = async (body) => {
     // test data
     const nrOfOptions = 4;
     const daoPublicKey = "GACRU2RTTFSLDDFGLLDIBLQQG66W52QZPJ3SWVC45YTE5H6K2II4H4CD";
+    const minimumTokensNeededToVote = 100000;
+    const maximumVotingDuration = 300; // seconds
+    const quorum = 40000;
     // end test data
+    
+    const nrOfSignersForProposalAccount = proposalTurretSigners.length + tallyTurretSigners.length + 1; // doa key
+    const nrOfTrustlinesForProposalAccount = 0;
+    const nrOfDataEntriesForProposalAccount = 6;
+    const minBalanceProposalAccount = getMinBalance(nrOfSignersForProposalAccount, nrOfTrustlinesForProposalAccount, nrOfDataEntriesForProposalAccount);
 
+    const nrOfSignersForTallyAccount = proposalTurretSigners.length + tallyTurretSigners.length + 2; // dao key + proposal account key
+    const nrOfTrustlinesForTallyAccount = nrOfOptions;
+    const nrOfDataEntriesForTallyAccount = 0;
+    const minBalanceTallyAccount = getMinBalance(nrOfSignersForTallyAccount, nrOfTrustlinesForTallyAccount, nrOfDataEntriesForTallyAccount);
+    
     const fee = await getFee();
 
     const sourceAccount = await server.loadAccount(source);
-
+    
+    const totalFeeCost = ((2 * proposalTurretSigners.length + 2 * tallyTurretSigners.length + 3 + nrOfOptions * 2) * fee) / 10000000;
+    const totalCost = totalFeeCost + minBalanceProposalAccount + minBalanceTallyAccount;
+	console.log("total cost: ", totalCost);
+	// todo: check if source has enough funds;
+	
     let transaction = new TransactionBuilder(sourceAccount, {
         fee,
         networkPassphrase: Networks[STELLAR_NETWORK]
     });
 
+
     // create proposal account
     transaction.addOperation(Operation.createAccount({
         destination: proposalAccountId,
-        startingBalance: '1'
+        startingBalance: "" + minBalanceProposalAccount
     }));
 
     // create tally account
     transaction.addOperation(Operation.createAccount({
         destination: tallyAccountId,
-        startingBalance: '1'
+        startingBalance: "" + minBalanceTallyAccount
     }));
+
+    // set status of the proposal account
+    transaction.addOperation(Operation.manageData({
+        source: proposalAccountId,
+        name: "status",
+        value: "active"
+    }));
+
+    // set time of creation to proposal account 
+    transaction.addOperation(Operation.manageData({
+        source: proposalAccountId,
+        name: "createTime",
+        value: "" + Math.floor(Date.now() / 1000)
+    }));
+
+    // add dao rules (Minimum token needed to vote)
+    transaction.addOperation(Operation.manageData({
+        source: proposalAccountId,
+        name: "minimumTokensNeededToVote",
+        value: "" + minimumTokensNeededToVote
+    }));
+
+    // add dao rules (Maximum duration for the voting phase)
+    transaction.addOperation(Operation.manageData({
+        source: proposalAccountId,
+        name: "maximumVotingDuration",
+        value: "" + maximumVotingDuration
+    }));
+
+    // add dao rules (Quorum: amount of votes needed for a proposal option to be accepted)
+    transaction.addOperation(Operation.manageData({
+        source: proposalAccountId,
+        name: "maximumVotingDuration",
+        value: "" + maximumVotingDuration
+    }));
+
+
+    // add pointer to proposal data on IPFS
+    transaction.addOperation(Operation.manageData({
+        source: proposalAccountId,
+        name: "proposalData",
+        value: IpfsProposalAddr
+    }));
+
 
     // add signers to proposal and tally account: 
     // signers are: proposal turret signers + tally turret signers + dao public key
@@ -155,31 +218,29 @@ module.exports = async (body) => {
         masterWeight: 0,
         lowThreshold: thresholdsValue,
         medThreshold: thresholdsValue,
-        highThreshold: thresholdsValue
+        highThreshold: thresholdsValue,
+        setFlags: 3 // Auth required, auth revocable
     }));
 
     // let tally account trust vote assets issued by proposal account
-    const optionAssets = new Array(nrOfOptions);
+    // allow trust only to tally account
 
-    for (let i = 0; i < optionAssets.length; i++) {
+    for (let i = 0; i < nrOfOptions; i++) {
+
+        const assetCode = 'OPTION' + i;
+
         transaction.addOperation(Operation.changeTrust({
             source: tallyAccountId,
-            asset: new Asset('OPTION' + i, proposalAccountId)
+            asset: new Asset(assetCode, proposalAccountId)
+        }));
+
+        transaction.addOperation(Operation.allowTrust({
+            source: proposalAccountId,
+            trustor: tallyAccountId,
+            assetCode: assetCode,
+            authorize: 1
         }));
     }
-
-    // set status of the proposal account
-    transaction.addOperation(Operation.manageData({
-        source: proposalAccountId,
-        name: "status",
-        value: "active"
-    }));
-
-    transaction.addOperation(Operation.manageData({
-        source: proposalAccountId,
-        name: "createTime",
-        value: "" + Math.floor(Date.now() / 1000)
-    }));
 
     return transaction.setTimeout(0).build().toXDR('base64');
 
@@ -190,4 +251,8 @@ function getFee() {
         .feeStats()
         .then((feeStats) => feeStats?.fee_charged?.max || 100000)
         .catch(() => 100000)
+};
+
+function getMinBalance(nrOfSigners, nrOfTrustlines, nrOfDataEntries) {
+    return (2 + nrOfSigners + nrOfTrustlines + nrOfDataEntries) * 0.5;
 };
