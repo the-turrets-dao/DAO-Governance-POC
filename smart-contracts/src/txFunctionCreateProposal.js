@@ -21,8 +21,6 @@ module.exports = async (body) => {
         IpfsProposalAddr
     } = body
 
-    console.log("source: ", source);
-
     const proposalKeypair = Keypair.fromSecret(proposalSecret);
     const proposalAccountId = proposalKeypair.publicKey();
 
@@ -56,10 +54,8 @@ module.exports = async (body) => {
 
     // test data
     const nrOfOptions = 4;
-
+    const daoPublicKey = "GACRU2RTTFSLDDFGLLDIBLQQG66W52QZPJ3SWVC45YTE5H6K2II4H4CD";
     // end test data
-
-    const nrOfSigners = proposalTurretSigners.length;
 
     const fee = await getFee();
 
@@ -70,22 +66,30 @@ module.exports = async (body) => {
         networkPassphrase: Networks[STELLAR_NETWORK]
     });
 
+    // create proposal account
     transaction.addOperation(Operation.createAccount({
         destination: proposalAccountId,
         startingBalance: '1'
     }));
 
+    // create tally account
     transaction.addOperation(Operation.createAccount({
         destination: tallyAccountId,
         startingBalance: '1'
     }));
 
+    // add signers to proposal and tally account: 
+    // signers are: proposal turret signers + tally turret signers + dao public key
+    // for the tally account also the proposal account should be a signer
+    const thresholdsValue = proposalTurretSigners.length * 2;
+
     for (const tallyTurretSigner of tallyTurretSigners) {
+
         transaction.addOperation(Operation.setOptions({
             source: proposalAccountId,
             signer: {
                 ed25519PublicKey: tallyTurretSigner,
-                weight: 1
+                weight: 2
             }
         }));
 
@@ -93,17 +97,18 @@ module.exports = async (body) => {
             source: tallyAccountId,
             signer: {
                 ed25519PublicKey: tallyTurretSigner,
-                weight: 1
+                weight: 2
             }
         }));
     }
 
     for (const proposalTurretSigner of proposalTurretSigners) {
+
         transaction.addOperation(Operation.setOptions({
             source: proposalAccountId,
             signer: {
                 ed25519PublicKey: proposalTurretSigner,
-                weight: 1
+                weight: 2
             }
         }));
 
@@ -111,27 +116,59 @@ module.exports = async (body) => {
             source: tallyAccountId,
             signer: {
                 ed25519PublicKey: proposalTurretSigner,
-                weight: 1
+                weight: 2
             }
         }));
     }
 
-    transaction.addOperation(Operation.setOptions({
-        source: proposalAccountId,
-        masterWeight: 0,
-        lowThreshold: nrOfSigners,
-        medThreshold: nrOfSigners,
-        highThreshold: nrOfSigners
-    }));
-
+    // add proposal account as a "zero" signer to the tally account
     transaction.addOperation(Operation.setOptions({
         source: tallyAccountId,
-        masterWeight: 0,
-        lowThreshold: nrOfSigners,
-        medThreshold: nrOfSigners,
-        highThreshold: nrOfSigners
+        signer: {
+            ed25519PublicKey: proposalAccountId,
+            weight: 1
+        }
     }));
 
+    // add dao public key as a "zero" signer to the tally account
+    // also remove the master key as a signer
+    transaction.addOperation(Operation.setOptions({
+        source: tallyAccountId,
+        signer: {
+            ed25519PublicKey: daoPublicKey,
+            weight: 1
+        },
+        masterWeight: 0,
+        lowThreshold: thresholdsValue,
+        medThreshold: thresholdsValue,
+        highThreshold: thresholdsValue
+    }));
+
+    // add dao public key as a "zero" signer to the proposal account
+    // also remove the master key as a signer
+    transaction.addOperation(Operation.setOptions({
+        source: proposalAccountId,
+        signer: {
+            ed25519PublicKey: daoPublicKey,
+            weight: 1
+        },
+        masterWeight: 0,
+        lowThreshold: thresholdsValue,
+        medThreshold: thresholdsValue,
+        highThreshold: thresholdsValue
+    }));
+
+    // let tally account trust vote assets issued by proposal account
+    const optionAssets = new Array(nrOfOptions);
+
+    for (let i = 0; i < optionAssets.length; i++) {
+        transaction.addOperation(Operation.changeTrust({
+            source: tallyAccountId,
+            asset: new Asset('OPTION' + i, proposalAccountId)
+        }));
+    }
+
+    // set status of the proposal account
     transaction.addOperation(Operation.manageData({
         source: proposalAccountId,
         name: "status",
@@ -143,16 +180,6 @@ module.exports = async (body) => {
         name: "createTime",
         value: "" + Math.floor(Date.now() / 1000)
     }));
-
-    const optionAssets = new Array(nrOfOptions);
-
-    for (let i = 0; i < optionAssets.length; i++) {
-        transaction.addOperation(Operation.changeTrust({
-            source: tallyAccountId,
-            asset: new Asset('OPTION' + i, proposalAccountId)
-        }));
-    }
-
 
     return transaction.setTimeout(0).build().toXDR('base64');
 
