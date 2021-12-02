@@ -30,6 +30,12 @@
         "rule": "Required"
     },
     {
+        "name": "proposalContractSigners",
+        "type": "string",
+        "description": "List of turret contract signers of the proposal contract (comma separated).",
+        "rule": "Required"
+    },
+    {
         "name": "IpfsProposalAddr",
         "type": "string",
         "description": "Address of Proposal Data Structure",
