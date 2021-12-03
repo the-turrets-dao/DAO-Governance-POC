@@ -10,6 +10,16 @@ const {
 
 const server = new Server(HORIZON_URL)
 
+// TEST DATA
+const GOV = new Asset("GOV", "GBNOMH3B6BIQE65TZVVBNOCTMLN7MYORU5GX6YNBX5YBGCI45R2EMGOV"); // SBDT5Z3CPSHZ74224EP5DLGVO56J755FSTQZPDQ5WCCOOCAJMY4HL2M6
+const daoPublicKey = "GACRU2RTTFSLDDFGLLDIBLQQG66W52QZPJ3SWVC45YTE5H6K2II4H4CD";
+const nrOfOptions = 4;
+const maximumVotingDuration = 300; // seconds
+const quorum = 40000;
+const optionAssetOfferAmount = 100000000000;
+// END test data
+
+
 module.exports = async (body) => {
     const {
         stage
@@ -18,9 +28,6 @@ module.exports = async (body) => {
     switch (stage) {
         case 'create':
             return createProposal(body);
-
-        case 'vote':
-            return vote(body);
 
         case 'tally':
             return tallyProposal(body);
@@ -56,14 +63,6 @@ async function createProposal(body) {
             message: 'Invalid nr of turret signers (min: 5, max: 19)'
         }
     }
-
-    // test data
-    const nrOfOptions = 4;
-    const daoPublicKey = "GACRU2RTTFSLDDFGLLDIBLQQG66W52QZPJ3SWVC45YTE5H6K2II4H4CD";
-    const GOV = new Asset("GOV", "GBNOMH3B6BIQE65TZVVBNOCTMLN7MYORU5GX6YNBX5YBGCI45R2EMGOV");
-    const maximumVotingDuration = 300; // seconds
-    const quorum = 40000;
-    // end test data
 
     // calculate reserve and costs.
     const nrOfSignersForProposalAccount = turretContractSigners.length + 1; // turret signers + doa key
@@ -172,7 +171,7 @@ async function createProposal(body) {
             source: proposalAccountId,
             selling: new Asset(assetCode, proposalAccountId),
             buying: GOV,
-            amount: '100000000000',
+            amount: "" + optionAssetOfferAmount,
             price: 1
         }));
     }
@@ -181,22 +180,78 @@ async function createProposal(body) {
 
 };
 
-async function vote(body) {
-    const {
-        source,
-        proposalAccountId,
-        optionIndex
-    } = body
-
-    return 'todo'
-};
-
-
 async function tallyProposal(body) {
     const {
         source,
         proposalAccountId
     } = body
+
+    const proposalAccount = await server.loadAccount(proposalAccountId);
+
+    // check if proposal account has dao signer
+    if (!accountHasSigner(proposalAccount, daoPublicKey)) {
+        throw {
+            message: 'invalid proposal account, missing dao signer.'
+        }
+    }
+
+    // check if proposal is active
+    if (typeof proposalAccount.data_attr.status !== "undefined") {
+        const status = Buffer.from(proposalAccount.data_attr.status, 'base64').toString('utf-8');
+        if (status !== "active") {
+            throw {
+                message: 'proposal status not active'
+            }
+        }
+    } else {
+        throw {
+            message: 'invalid proposal account, missing status.'
+        }
+    }
+
+    // check if endTime is reached.
+    if (typeof proposalAccount.data_attr.endTime !== "undefined") {
+        const endTimeStr = Buffer.from(proposalAccount.data_attr.endTime, 'base64').toString('utf-8');
+        endTimeInt = parseInt(endTimeStr) || 0;
+        if (endTimeInt == 0) {
+            throw {
+                message: 'invalid proposal account, invalid end time.'
+            }
+        }
+        const now = Math.floor(Date.now() / 1000);
+        if (now < endTimeInt) {
+            throw {
+                message: 'voting time not finished.'
+            }
+        }
+    } else {
+        throw {
+            message: 'invalid proposal account, missing end time.'
+        }
+    }
+
+    // find voting options that reached the quorum
+    const quorumReachedAssets = new Array();
+    let page = await server.assets().forIssuer(proposalAccountId).call();
+    while (true) {
+        if (typeof page == "undefined" ||
+            typeof page.records == "undefined" ||
+            page.records.length == 0) {
+            break;
+        }
+        for (let i = 0; i < page.records.length; i++) {
+            if (optionAssetOfferAmount - quorum <= page.records[i].amount) {
+                quorumReachedAssets.push(page.records[i]);
+            }
+        }
+        page = page.next();
+    }
+
+    if (quorumReachedAssets.length == 0) {
+        throw {
+            message: 'quorum not reached.'
+        }
+    }
 
     return 'todo'
 };
@@ -216,4 +271,13 @@ function getFee() {
         .feeStats()
         .then((feeStats) => feeStats?.fee_charged?.max || 100000)
         .catch(() => 100000)
+};
+
+function accountHasSigner(account, signer) {
+    for (let i = 0; i < account.signers.length; i++) {
+        if (account.signers[i].key == signer) {
+            return true;
+        }
+    }
+    return false;
 };

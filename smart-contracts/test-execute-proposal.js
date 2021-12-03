@@ -28,8 +28,9 @@ const fs = require('fs')
 
     const txFunctionCode = fs.readFileSync('./dist/txFunction.js', 'utf8')
     const result = await vm.run(txFunctionCode, 'vm.js')({
-      stage: 'execute'
-      proposalAccount: 'GDN5W6EVQ6ODOEFJXCQKP3YV4VYRRUK2B2RHGCANH6KATZWRID2CRMIN'
+      stage: 'execute',
+      source: 'GDAWI5ID5QDM26GVEWNT2SLG4OBUFWHCOJ6BEVSPWLQLWFFRTOT3AGUG', // SBLWS3VCF5DZKGZEHRWD3SABAILWNNZGMKSUSMLQ4YFGY5BL6LP2GKVL
+      proposalAccountId: 'GBHSPRTBR53Y2B7APJWUJ3RDA2YZGEX2CEDNMGAJSPIFGDKGOMNM7WIN'
     })
   
     console.log(result)

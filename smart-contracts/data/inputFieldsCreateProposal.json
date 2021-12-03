@@ -18,17 +18,11 @@
         "rule": "Required"
     },
     {
-        "name": "tallySecret",
-        "type": "string",
-        "description": "Secret key for tally account.",
-        "rule": "Required"
-    },
-    {
         "name": "turretSigners",
         "type": "string",
         "description": "List of turret contract signers of the proposal account.",
         "rule": "Required"
-    }
+    },
     {
         "name": "IpfsProposalAddr",
         "type": "string",

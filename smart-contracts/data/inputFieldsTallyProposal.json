@@ -1,6 +1,12 @@
 [
     {
-        "name": "proposalAccount",
+        "name": "source",
+        "type": "string",
+        "description": "Account id of the executor account to pay the fee.",
+        "rule": "Required"
+    },
+    {
+        "name": "proposalAccountId",
         "type": "string",
         "description": "Account id of the proposal account.",
         "rule": "Required"
