@@ -26,8 +26,9 @@ const fs = require('fs')
       }
     })
 
-    const txFunctionCode = fs.readFileSync('./dist/txFunctionTallyProposal.js', 'utf8')
+    const txFunctionCode = fs.readFileSync('./dist/txFunction.js', 'utf8')
     const result = await vm.run(txFunctionCode, 'vm.js')({
+       stage: 'tally'
        proposalAccount: 'GDN5W6EVQ6ODOEFJXCQKP3YV4VYRRUK2B2RHGCANH6KATZWRID2CRMIN'
     })
   
