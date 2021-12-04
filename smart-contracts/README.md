@@ -13,8 +13,6 @@
 
 `> node test-create-proposal.js`
 
-`[> node test-vote.js]*`
-
 `> node test-tally-proposal.js`
 
 `> node test-execute-proposal.js`
