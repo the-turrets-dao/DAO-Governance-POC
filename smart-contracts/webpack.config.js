@@ -32,12 +32,14 @@ module.exports = {
     nodeExternals({
       allowlist: [
         // Place packages here you want to be bundled into your txFunction executable
+        /toml/
       ]
     }),
     /bignumber\.js/,
     /stellar-sdk/,
     /node-fetch/,
-    /lodash/
+    /lodash/,
+    /toml/
   ],
   module: {
     rules: [

@@ -10,5 +10,11 @@
         "type": "string",
         "description": "Account id of the proposal account.",
         "rule": "Required"
+    },
+    {
+        "name": "network",
+        "type": "string",
+        "description": "Stellar network (test or public)",
+        "rule": "Required"
     }
 ]

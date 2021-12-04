@@ -1,8 +1,8 @@
 [
     {
-        "name": "daoToml",
+        "name": "daoHome",
         "type": "string",
-        "description": "Link to dao.toml",
+        "description": "Link to DAO address wich publishes <daoHome>/.well-known/dao.toml.",
         "rule": "Required"
     },
     {
@@ -27,6 +27,12 @@
         "name": "IpfsProposalAddr",
         "type": "string",
         "description": "Address of Proposal Data Structure",
-        "rule": "Optional"
+        "rule": "Required"
+    },
+    {
+        "name": "network",
+        "type": "string",
+        "description": "Stellar network (test or public).",
+        "rule": "Required"
     }
 ]
