@@ -20,12 +20,15 @@ const nrOfOptions = 4;
 
 module.exports = async (body) => {
     const {
-        stage
+        action
     } = body;
 
-    switch (stage) {
+    switch (action) {
         case 'create':
             return createProposal(body);
+
+        case 'close':
+            return closeProposal(body);
 
         case 'tally':
             return tallyProposal(body);
@@ -51,7 +54,7 @@ async function createProposal(body) {
 
     // load and parse dao.toml
     const tomlStr = await fetchToml(daoTomlHost);
-    var toml = require('toml');    
+    var toml = require('toml');
     var tomlData = toml.parse(tomlStr);
     //console.dir(tomlData);
     let votingTokenStr = tomlData.DAO_VOTING_TOKEN;
@@ -108,7 +111,7 @@ async function createProposal(body) {
         }
     }
 
-    if(rescueSigners.length != 3) {
+    if (rescueSigners.length != 3) {
         throw {
             message: 'Invalid number of rescue signers in dao.toml. DAO must provide 3 rescue signers.'
         }
@@ -122,7 +125,7 @@ async function createProposal(body) {
         }
     }
 
-    if(!daoPublicKey.startsWith("G")) {
+    if (!daoPublicKey.startsWith("G")) {
         throw {
             message: 'Invalid dao toml, invalid DAO_PUBLIC_KEY. Must start with G'
         }
@@ -255,7 +258,7 @@ async function createProposal(body) {
     return transaction.setTimeout(0).build().toXDR('base64');
 };
 
-async function tallyProposal(body) {
+async function closeProposal(body) {
     const {
         source,
         proposalAccountId
@@ -295,6 +298,113 @@ async function tallyProposal(body) {
     } else {
         throw {
             message: 'invalid proposal account, missing end time data entry.'
+        }
+    }
+
+    // read voting token
+    let votingToken;
+    if (typeof proposalAccount.data_attr.votingToken !== "undefined") {
+        const votingTokenStr = Buffer.from(proposalAccount.data_attr.votingToken, 'base64').toString('utf-8');
+        const assetParts = votingTokenStr.split(':').map(function(item) {
+            return item.trim();
+        });
+        if (assetParts.length != 2) {
+            throw {
+                message: 'invalid proposal account, invalid voting token.'
+            }
+        }
+        votingToken = new Asset(assetParts[0], assetParts[1]);
+    } else {
+        throw {
+            message: 'invalid proposal account, missing voting token data entry.'
+        }
+    }
+    // load all offers to be removed
+    const offers = new Array();
+    page = await server.offers().forAccount(proposalAccountId).call();
+    while (true) {
+        if (typeof page === "undefined" ||
+            typeof page.records === "undefined" ||
+            page.records.length == 0) {
+            break;
+        }
+        for (let i = 0; i < page.records.length; i++) {
+            offers.push(page.records[i]);
+            if (page.records[i].buying.asset_code != votingToken.code &&
+                page.records[i].buying.asset_issuer != votingToken.issuer) {
+                throw {
+                    message: 'invalid offer found for proposal account. offer must be buying voting token saved in data entry.'
+                }
+            }
+        }
+        page = page.next();
+    }
+
+    // create transaction
+    const sourceAccount = await server.loadAccount(source);
+    const fee = await getFee();
+
+    let transaction = new TransactionBuilder(sourceAccount, {
+        fee,
+        networkPassphrase: Networks[STELLAR_NETWORK]
+    });
+
+    transaction.addOperation(Operation.beginSponsoringFutureReserves({
+        source: source,
+        sponsoredId: proposalAccountId
+    }))
+
+    // set status of the proposal account
+    transaction.addOperation(Operation.manageData({
+        source: proposalAccountId,
+        name: "status",
+        value: "closed"
+    }));
+
+    const closeTime = Math.floor(Date.now() / 1000);
+    transaction.addOperation(Operation.manageData({
+        source: proposalAccountId,
+        name: "closeTime",
+        value: "" + closeTime
+    }));
+
+    transaction.addOperation(Operation.endSponsoringFutureReserves({
+        source: proposalAccountId
+    }));
+
+    // remove existing offers
+    for (let i = 0; i < offers.length; i++) {
+        transaction.addOperation(Operation.manageSellOffer({
+            source: proposalAccountId,
+            selling: new Asset(offers[i].selling.asset_code, offers[i].selling.asset_issuer),
+            buying: votingToken,
+            amount: "0",
+            price: 1,
+            offerId: offers[i].id
+        }));
+    }
+    return transaction.setTimeout(0).build().toXDR('base64');
+};
+
+async function tallyProposal(body) {
+    const {
+        source,
+        proposalAccountId
+    } = body
+
+    const proposalAccount = await server.loadAccount(proposalAccountId);
+
+    // check if proposal is active
+    if (typeof proposalAccount.data_attr.status !== "undefined") {
+        const status = Buffer.from(proposalAccount.data_attr.status, 'base64').toString('utf-8');
+        if (status !== "closed") {
+            throw {
+                message: 'proposal status not closed'
+            }
+        }
+    } else {
+        throw {
+            message: 'invalid proposal account, missing status data entry.'
         }
     }
 
@@ -353,50 +463,27 @@ async function tallyProposal(body) {
         page = page.next();
     }
 
-    if (quorumReachedAssets.length == 0) {
-        throw {
-            message: 'quorum not reached.'
-        }
-    }
+    let winnerOption = -1;
 
-    // find winner option
-    quorumReachedAssets.sort((a,b) => (a.amount > b.amount) ? 1 : ((b.amount > a.amount) ? -1 : 0))
-    
-    const winner = quorumReachedAssets[quorumReachedAssets.length - 1];
+    if (quorumReachedAssets.length != 0) {
+        // find winner option
+        quorumReachedAssets.sort((a, b) => (a.amount > b.amount) ? 1 : ((b.amount > a.amount) ? -1 : 0))
 
-    if (!winner.asset_code.startsWith("OPTION") || !winner.length > 6) {
-        throw {
-            message: 'invalid option token.'
-        }
-    }
-    
-    const winnerOption = parseInt(winner.asset_code.substr(6) || -1);
-    
-    if (winnerOption < 0) {
-        throw {
-            message: 'invalid option token.'
-        }
-    }
+        const winner = quorumReachedAssets[quorumReachedAssets.length - 1];
 
-    // load all offers to be removed
-    const offers = new Array();
-    page = await server.offers().forAccount(proposalAccountId).call();
-    while (true) {
-        if (typeof page === "undefined" ||
-            typeof page.records === "undefined" ||
-            page.records.length == 0) {
-            break;
-        }
-        for (let i = 0; i < page.records.length; i++) {
-            offers.push(page.records[i]);
-            if (page.records[i].buying.asset_code != votingToken.code 
-                && page.records[i].buying.asset_issuer != votingToken.issuer) {
-                    throw {
-                        message: 'invalid offer found for proposal account. offer must be buying voting token saved in data entry.' 
-                    }
+        if (!winner.asset_code.startsWith("OPTION") || !winner.length > 6) {
+            throw {
+                message: 'invalid option token.'
             }
         }
-        page = page.next();
+
+        winnerOption = parseInt(winner.asset_code.substr(6) || -1);
+
+        if (winnerOption < 0) {
+            throw {
+                message: 'invalid option token.'
+            }
+        }
     }
 
     // create transaction
@@ -437,19 +524,6 @@ async function tallyProposal(body) {
         source: proposalAccountId
     }));
 
-    // remove existing offers
-    for (let i = 0; i < offers.length; i++) {
-        transaction.addOperation(Operation.manageSellOffer({
-            source: proposalAccountId,
-            selling: new Asset(offers[i].selling.asset_code, offers[i].selling.asset_issuer),
-            buying: votingToken,
-            amount: "" + 0,
-            price: 1,
-            offerId: offers[i].id
-        }));
-
-    }
-
     // add sell offers for voting tokens collected.
     for (let i = 0; i < assets.length; i++) {
         transaction.addOperation(Operation.manageSellOffer({
@@ -489,17 +563,17 @@ function getFee() {
     return false;
 };*/
 
-async function fetchToml(host){
+async function fetchToml(host) {
     const urlToml = host + '/.well-known/dao.toml';
     var fetch = require('node-fetch');
 
     const response = await fetch(urlToml)
-    .then(async (res) => {
-        if (res.ok)
-            return res.text()
-        else
-            throw await res.text()
-    })
+        .then(async (res) => {
+            if (res.ok)
+                return res.text()
+            else
+                throw await res.text()
+        })
 
     return response
 };

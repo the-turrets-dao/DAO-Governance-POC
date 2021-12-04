@@ -13,6 +13,8 @@
 
 `> node test-create-proposal.js`
 
+`> node test-close-proposal.js`
+
 `> node test-tally-proposal.js`
 
 `> node test-execute-proposal.js`
