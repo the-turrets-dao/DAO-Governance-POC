@@ -13,10 +13,6 @@ const STELLAR_NETWORK = 'TESTNET'
 
 const server = new Server(HORIZON_URL)
 
-// TEST DATA
-const nrOfOptions = 4;
-// END test data
-
 
 module.exports = async (body) => {
     const {
@@ -53,11 +49,11 @@ async function createProposal(body) {
     } = body
 
     // load and parse dao.toml
-    const tomlStr = await fetchToml(daoTomlHost);
+    const daoTomlStr = await fetchDAOToml(daoTomlHost);
     var toml = require('toml');
-    var tomlData = toml.parse(tomlStr);
-    //console.dir(tomlData);
-    let votingTokenStr = tomlData.DAO_VOTING_TOKEN;
+    var daoTomlData = toml.parse(daoTomlStr);
+    //console.dir(daoTomlData);
+    let votingTokenStr = daoTomlData.DAO_VOTING_TOKEN;
     if (!votingTokenStr) {
         throw {
             message: 'Invalid dao toml, missing DAO_VOTING_TOKEN'
@@ -73,19 +69,19 @@ async function createProposal(body) {
     }
     votingToken = new Asset(assetParts[0], assetParts[1]);
 
-    let votingPowerStr = tomlData.MIN_VOTING_POWER_CREATE_PROPOSAL;
+    let votingPowerStr = daoTomlData.MIN_VOTING_POWER_CREATE_PROPOSAL;
     if (!votingPowerStr) {
         throw {
             message: 'Invalid dao toml, missing MIN_VOTING_POWER_CREATE_PROPOSAL'
         }
     }
-    let votingQuorumStr = tomlData.MIN_VOTING_POWER_CREATE_QUORUM;
+    let votingQuorumStr = daoTomlData.MIN_VOTING_POWER_CREATE_QUORUM;
     if (!votingQuorumStr) {
         throw {
             message: 'Invalid dao toml, missing MIN_VOTING_POWER_CREATE_QUORUM'
         }
     }
-    let votingDurationStr = tomlData.MIN_VOTING_DURATION_SECONDS;
+    let votingDurationStr = daoTomlData.MIN_VOTING_DURATION_SECONDS;
     if (!votingDurationStr) {
         throw {
             message: 'Invalid dao toml, missing MIN_VOTING_DURATION_SECONDS'
@@ -98,13 +94,13 @@ async function createProposal(body) {
         }
     }
 
-    let votingOfferAmountStr = tomlData.OFFER_AMMOUNT_PER_VOTING_OPTION;
+    let votingOfferAmountStr = daoTomlData.OFFER_AMMOUNT_PER_VOTING_OPTION;
     if (!votingOfferAmountStr) {
         throw {
             message: 'Invalid dao toml, missing OFFER_AMMOUNT_PER_VOTING_OPTION'
         }
     }
-    let rescueSigners = tomlData.PROPOSAL_ACCOUNT_RESCUE_SIGNERS;
+    let rescueSigners = daoTomlData.PROPOSAL_ACCOUNT_RESCUE_SIGNERS;
     if (!rescueSigners) {
         throw {
             message: 'Invalid dao toml, missing PROPOSAL_ACCOUNT_RESCUE_SIGNERS'
@@ -117,7 +113,7 @@ async function createProposal(body) {
         }
     }
 
-    let daoPublicKey = tomlData.DAO_PUBLIC_KEY;
+    let daoPublicKey = daoTomlData.DAO_PUBLIC_KEY;
 
     if (!daoPublicKey) {
         throw {
@@ -132,6 +128,25 @@ async function createProposal(body) {
     }
 
     // todo: validate signature
+
+    // load proposal data
+    // read number of options
+    const proposalTomlStr = await fetchToml(IpfsProposalAddr);
+    var proposalTomlData = toml.parse(proposalTomlStr);
+    //console.dir(proposalTomlData);
+    let proposalOptions = proposalTomlData.PROPOSAL_VOTING_OPTIONS;
+    if (!proposalOptions) {
+        throw {
+            message: 'Invalid proposal toml, missing PROPOSAL_VOTING_OPTIONS'
+        }
+    }
+
+    if (proposalOptions.length < 2) {
+        throw {
+            message: 'Invalid number of options in proposal data (min 2).'
+        }
+    }
+    const nrOfOptions = proposalOptions.length;
 
     const proposalKeypair = Keypair.fromSecret(proposalSecret);
     const proposalAccountId = proposalKeypair.publicKey();
@@ -563,11 +578,15 @@ function getFee() {
     return false;
 };*/
 
-async function fetchToml(host) {
+async function fetchDAOToml(host) {
     const urlToml = host + '/.well-known/dao.toml';
+    return fetchToml(urlToml)
+};
+
+async function fetchToml(url) {
     var fetch = require('node-fetch');
 
-    const response = await fetch(urlToml)
+    const response = await fetch(url)
         .then(async (res) => {
             if (res.ok)
                 return res.text()
