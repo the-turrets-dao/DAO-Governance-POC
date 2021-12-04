@@ -15,8 +15,8 @@ const GOV = new Asset("GOV", "GBNOMH3B6BIQE65TZVVBNOCTMLN7MYORU5GX6YNBX5YBGCI45R
 const daoPublicKey = "GACRU2RTTFSLDDFGLLDIBLQQG66W52QZPJ3SWVC45YTE5H6K2II4H4CD";
 const nrOfOptions = 4;
 const maximumVotingDuration = 300; // seconds
-const quorum = 40000;
-const optionAssetOfferAmount = 100000000000;
+const testQuorum = 40000;
+const offerAmountPerVotingOption = 100000000000;
 // END test data
 
 
@@ -72,13 +72,12 @@ async function createProposal(body) {
 
     const fee = await getFee();
 
-    const nrOfOperations = nrOfSignersForProposalAccount + nrOfDataEntriesForProposalAccount + nrOfDataEntriesForProposalAccount + nrOfOptions + 1; // + create account
+    /*const nrOfOperations = nrOfSignersForProposalAccount + nrOfDataEntriesForProposalAccount + nrOfDataEntriesForProposalAccount + nrOfOptions + 1; // + create account
     const totalFeeCost = (nrOfOperations * fee) / 10000000;
     const totalCost = totalFeeCost + minBalanceForProposalAccount;
-    console.log("total cost: ", totalCost);
+    console.log("total cost: ", totalCost);*/
 
     const sourceAccount = await server.loadAccount(source);
-    // todo: check if source has enough funds;
 
     let transaction = new TransactionBuilder(sourceAccount, {
         fee,
@@ -118,7 +117,7 @@ async function createProposal(body) {
     transaction.addOperation(Operation.manageData({
         source: proposalAccountId,
         name: "quorum",
-        value: "" + quorum
+        value: "" + testQuorum
     }));
 
     // add pointer to proposal data on IPFS
@@ -171,13 +170,11 @@ async function createProposal(body) {
             source: proposalAccountId,
             selling: new Asset(assetCode, proposalAccountId),
             buying: GOV,
-            amount: "" + optionAssetOfferAmount,
+            amount: "" + offerAmountPerVotingOption,
             price: 1
         }));
     }
-
     return transaction.setTimeout(0).build().toXDR('base64');
-
 };
 
 async function tallyProposal(body) {
@@ -205,17 +202,17 @@ async function tallyProposal(body) {
         }
     } else {
         throw {
-            message: 'invalid proposal account, missing status.'
+            message: 'invalid proposal account, missing status data entry.'
         }
     }
 
     // check if endTime is reached.
     if (typeof proposalAccount.data_attr.endTime !== "undefined") {
         const endTimeStr = Buffer.from(proposalAccount.data_attr.endTime, 'base64').toString('utf-8');
-        endTimeInt = parseInt(endTimeStr) || 0;
+        const endTimeInt = parseInt(endTimeStr) || 0;
         if (endTimeInt == 0) {
             throw {
-                message: 'invalid proposal account, invalid end time.'
+                message: 'invalid proposal account, invalid end time stored in account data.'
             }
         }
         const now = Math.floor(Date.now() / 1000);
@@ -226,11 +223,29 @@ async function tallyProposal(body) {
         }
     } else {
         throw {
-            message: 'invalid proposal account, missing end time.'
+            message: 'invalid proposal account, missing end time data entry.'
+        }
+    }
+
+    let quorum = 0;
+
+    // read quorum
+    if (typeof proposalAccount.data_attr.quorum !== "undefined") {
+        const quporum = Buffer.from(proposalAccount.data_attr.quorum, 'base64').toString('utf-8');
+        quorum = parseInt(quporum) || 0;
+        if (quorum <= 0) {
+            throw {
+                message: 'invalid proposal account, invalid quorum stored in account data.'
+            }
+        }
+    } else {
+        throw {
+            message: 'invalid proposal account, missing quorum data entry.'
         }
     }
 
     // find voting options that reached the quorum
+    const assets = new Array();
     const quorumReachedAssets = new Array();
     let page = await server.assets().forIssuer(proposalAccountId).call();
     while (true) {
@@ -240,7 +255,8 @@ async function tallyProposal(body) {
             break;
         }
         for (let i = 0; i < page.records.length; i++) {
-            if (optionAssetOfferAmount - quorum <= page.records[i].amount) {
+            assets.push(page.records[i]);
+            if (page.records[i].amount >= quorum) {
                 quorumReachedAssets.push(page.records[i]);
             }
         }
@@ -253,7 +269,96 @@ async function tallyProposal(body) {
         }
     }
 
-    return 'todo'
+    // find winner option
+    quorumReachedAssets.sort((a,b) => (a.amount > b.amount) ? 1 : ((b.amount > a.amount) ? -1 : 0))
+    
+    const winner = quorumReachedAssets[0];
+
+    if (!winner.asset_code.startsWith("OPTION") || !winner.length > 6) {
+        throw {
+            message: 'invalid option token.'
+        }
+    }
+    
+    const winnerOption = parseInt(winner.asset_code.substr(6) || -1);
+    
+    if (winnerOption < 0) {
+        throw {
+            message: 'invalid option token.'
+        }
+    }
+
+    // load all offers to be removed
+    const offers = new Array();
+    page = await server.offers().forAccount(proposalAccountId).call();
+    while (true) {
+        if (typeof page == "undefined" ||
+            typeof page.records == "undefined" ||
+            page.records.length == 0) {
+            break;
+        }
+        for (let i = 0; i < page.records.length; i++) {
+            offers.push(page.records[i]);
+        }
+        page = page.next();
+    }
+
+    // create transaction
+    const sourceAccount = await server.loadAccount(source);
+    const fee = await getFee();
+
+    let transaction = new TransactionBuilder(sourceAccount, {
+        fee,
+        networkPassphrase: Networks[STELLAR_NETWORK]
+    });
+
+    transaction.addOperation(Operation.beginSponsoringFutureReserves({
+        source: source,
+        sponsoredId: proposalAccountId
+    }))
+
+    // set status of the proposal account
+    transaction.addOperation(Operation.manageData({
+        source: proposalAccountId,
+        name: "status",
+        value: "finished"
+    }));
+
+    const finishTime = Math.floor(Date.now() / 1000);
+    transaction.addOperation(Operation.manageData({
+        source: proposalAccountId,
+        name: "finishTime",
+        value: "" + finishTime
+    }));
+
+    transaction.addOperation(Operation.endSponsoringFutureReserves({
+        source: proposalAccountId
+    }));
+
+    // remove existing offers
+    for (let i = 0; i < offers.length; i++) {
+        transaction.addOperation(Operation.manageSellOffer({
+            source: proposalAccountId,
+            selling: new Asset(offers[i].selling.asset_code, offers[i].selling.asset_issuer),
+            buying: GOV,
+            amount: "" + 0,
+            price: 1,
+            offerId: offers[i].id
+        }));
+
+    }
+
+    // add sell offers for GOV tokens collected.
+    for (let i = 0; i < assets.length; i++) {
+        transaction.addOperation(Operation.manageSellOffer({
+            source: proposalAccountId,
+            selling: GOV,
+            buying: new Asset(assets[i].asset_code, assets[i].asset_issuer),
+            amount: "" + assets[i].amount,
+            price: 1
+        }));
+    }
+    return transaction.setTimeout(0).build().toXDR('base64');
 };
 
 async function executeProposal(body) {
