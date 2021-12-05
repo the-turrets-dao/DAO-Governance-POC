@@ -210,7 +210,7 @@ The **XDR** resulting from the execution of the contract is signed by the turret
 #### 4. create offers to sell the collected voting tokens back to the voters
 - *selling*: voting tokens asspecifield in dao.toml (PROPOSAL_VOTING_TOKEN)
 - *buying*: "OPTION[x]:proposal_account_id" tokens 
-- *amount*: max
+- *amount*: calculated by query horizon assets endpoint
 - *price:* 1.0
 #### 5. create a payment operation to send the bond back to the creator
 #### 6. merge nonce account into source account
