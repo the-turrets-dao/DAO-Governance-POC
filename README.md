@@ -41,6 +41,7 @@ The source account must be controlled by the 5 turret signers provided as a pram
 - *all thresholds*: 3
 - *signers*: the 5 turret signers, each having a weight of 1
 - *balance*: tbd - approx 5-10 XLM to be able to finance the creation of the proposal
+- *balance*: voting tokens to be stacked as definded by CREATE_PROPOSAL_BOND (see [dao data specification](#dao-specifications-for-proposals))
 
 ### Seed for the proposal account
 
@@ -60,7 +61,7 @@ It is a toml file and must contain the following data fields:
 | DAO_OFFICIAL_EMAIL| required |Contact email address.|
 | DAO_URL| required |Link to the official home page of the DAO.|
 | PROPOSAL_VOTING_TOKEN| required |Canonical form of the token to be used for votion on proposals. (e.g. "GOV:GBNOMH3B6BIQE65TZVVBNOCTMLN7MYORU5GX6YNBX5YBGCI45R2EMGOV")|
-| MIN_VOTING_POWER_CREATE_PROPOSAL| required |The minimum amount of voting tokens the creator of the proposal must have to be allowed to create the proposal.|
+| CREATE_PROPOSAL_BOND| required |The amount of voting tokens the creator of the proposal must stake to be allowed to create the proposal.|
 | MIN_VOTING_POWER_CREATE_QUORUM| required |The minimum amount of voting tokens one option of the proposal must have to win the proposal.|
 | MIN_VOTING_POWER_CREATE_QUORUM| required |The minimum amount of tokens an option must receive to win the proposal.|
 | MIN_VOTING_DURATION_SECONDS| required |The minimum number of seconds that a proposal must be active.|
@@ -77,7 +78,7 @@ DAO_DESCRIPTION="A DAO for testing stuff"
 DAO_OFFICIAL_EMAIL="hi@testdao.org"
 DAO_URL="https://testdao.org"
 DAO_VOTING_TOKEN="GOV:GBNOMH3B6BIQE65TZVVBNOCTMLN7MYORU5GX6YNBX5YBGCI45R2EMGOV"
-MIN_VOTING_POWER_CREATE_PROPOSAL="100"
+CREATE_PROPOSAL_BOND="100"
 MIN_VOTING_POWER_CREATE_QUORUM="40000"
 MIN_VOTING_DURATION_SECONDS="300"
 PROPOSAL_ACCOUNT_RESCUE_SIGNERS=[
@@ -146,12 +147,18 @@ The smart contract must be uploaded to 5 turret servers. When uploading, a speci
 - *master key weight*: 0
 - *thresholds*: all set to 3
 - *data entries*: ```staus="active"```, ```proposal_data_hash="..."```
-#### 2.b. create an selling offer for each proposal option
+#### 2.b. let the proposal account trust the voting tokens
+#### 2.c. create a selling offer for each proposal option
 - *selling*: "OPTION[x]:proposal_account_id" tokens 
 - *buying*: voting tokens asspecifield in dao.toml (PROPOSAL_VOTING_TOKEN)
 - *amount*: max
 - *price:* 1.0
+#### 2.d. create a payment of voting tokens from the source account to the proposal account (bond)
+- *amount*: as specified in CREATE_PROPOSAL_BOND
 
+## Voting
+
+Voters puchase the "OPTION[x]:proposal_account_id" tokens offered by the proposal account. They can exchange them back for voting tokens after the tally.
 
 ## Close proposal
 
@@ -169,6 +176,46 @@ The **XDR** resulting from the execution of the contract is signed by the turret
 #### 1. validate parameters and data
 #### 2. delete offers if the proposal can be closed (check duration)
 #### 3. set status to closed in data entry of proposal account
+
+
+## Tally proposal
+
+To count the votes of a closed proposal the user has to execute the smart contract with the action parameter set to ```action='tally'```. 
+
+Other **parameters** are:
+- account id of the source account used to finance this operation (executors account)
+- proposal account id - see [create proposal](#-create-proposal)
+- a link to the specific configuration of the proposal - see [proposal data specification](#specification-of-the-proposal)
+
+The **XDR** resulting from the execution of the contract is signed by the turret servers and has to be also signed by the user with the signer(s) of the source account before submitted to the stellar network.  
+
+### Contract logic of the tally proposal action
+
+#### 1. validate parameters and data
+#### 2. count the votes and find the winner
+#### 3. set status to finished if winner was found otherwise to failed (no option reached the quorum)
+#### 4. create offers to sell the collected voting tokens back to the voters
+- *selling*: voting tokens asspecifield in dao.toml (PROPOSAL_VOTING_TOKEN)
+- *buying*: "OPTION[x]:proposal_account_id" tokens 
+- *amount*: max
+- *price:* 1.0
+#### 5. create a payment operation to send the bond back to the creator
+
+## Execute proposal
+
+For execution of a finished proposal the user has to call the smart contract with the action parameter set to ```action='execute'```. 
+
+Other **parameters** are:
+- account id of the source account used to finance this operation (executors account)
+- proposal account id - see [create proposal](#-create-proposal)
+- a link to the specific configuration of the proposal - see [proposal data specification](#specification-of-the-proposal)
+
+The **XDR** resulting from the execution of the contract is signed by the turret servers.
+
+### Contract logic of the execution proposal action
+
+#### 1. validate parameters and data
+#### 2. load and return the winner option xdr from the proposal data
 
 ## Test curretnt version
 You can find a description here on how to [test the smart contract locally](smart-contracts/).
