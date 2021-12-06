@@ -115,7 +115,6 @@ It is a toml file and must contain the following data fields:
 | PROPOSAL_DISCUSSION_LINK| required |Link to the official discussion forum for this proposal (e.g. link to discord server)|
 | PROPOSAL_VOTING_TOKEN| required |Must be the same as DAO_VOTING_TOKEN from dao.toml on proposal creation.|
 | PROPOSAL_DURATION_SECONDS| required |Must be greater or equal to MIN_VOTING_DURATION_SECONDS from dao.toml on proposal creation.|
-| PROPOSAL_MIN_VOTING_POWER_CREATE_QUORUM|required | Must be greater or equal to MIN_VOTING_POWER_CREATE_QUORUM from dao.toml on proposal creation.|
 | QUORUM_STATIC| optional |Same as QUORUM_STATIC field in dao.toml on proposal creation. If QUORUM_PERCENT_CIRCULATION is set in DAO rules, it will be converted to QUORUM_STATIC on proposal creation based based on token balances at that time.|
 | PROPOSAL_VOTING_OPTIONS| required |The voting options|
 
