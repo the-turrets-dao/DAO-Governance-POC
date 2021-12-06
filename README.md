@@ -2,7 +2,9 @@
 
 This repository will hold a Proof of Concept for DAO governance based on Stellar. It is created in collaboration of Instant DAO and The Turrets DAO.
 
-Currently it contains one smart contract that will be upladed on 5 different turret servers. The smart contract is work in progress.
+Currently it contains the concept and a smart contract that will be upladed on 5 different turret servers. The concept and the smart contract are work in progress.
+
+# Concept
 
 Following chapters describe the process we have come up with for this prototype. Depending on progress, we will adjust it accordingly.
 
@@ -25,18 +27,18 @@ To create a new proposal the user has to execute the smart contract with the act
 Other **parameters** are:
 
 - account id of the source account that will fund the create proposal process - see [source accout](#source-account-to-create-a-proposal)
-- account id of a nonce account that has a small balance and is controlled by the turret signers.
+- account id of a nonce account that has a small balance and is controlled by the turret signers - see [nonce accout](#nonce-account-controlled-by-the-turrets).
 - a secret seed for a proposal account that does not yet exist and should be created - see [proposal account](#seed-for-the-proposal-account)
 - a link to the general dao specifications for proposals - see [dao data specification](#dao-specifications-for-proposals)
 - a link to the specific configuration of the proposal - see [proposal data specification](#specification-of-the-proposal)
 - a list of 5 turret signers on which this contract is run and which are responsible for signing further steps (close, tally, execute) - see [turret signers](#turret-signers).
 
-The **XDR** resulting from the execution of the contract is signed by the turret servers and has to be also signed by the user with the seed of the proposal account before submitted to the stellar network.  
+The **XDR** resulting from the execution of the contract action ```create``` is signed by the turret servers and has to be also signed by the user with the seed of the source account and with the seed of the proposal account before submitted to the stellar network.  
 
 
 ### Source account to create a proposal
 
-The source account must have enough XLM to pay for the creation + voting tokens to fund the bond.
+The source account must have enough XLM to pay for the creation and it must have enough voting tokens to fund the bond.
 
 - *balance*: tbd - approx 5-10 XLM to be able to finance the creation of the proposal
 - *balance*: voting tokens to be stacked as definded by CREATE_PROPOSAL_BOND (see [dao data specification](#dao-specifications-for-proposals))
@@ -56,7 +58,7 @@ It should be a random secret seed of an account that does not yet exist and is y
 
 ### DAO specifications for proposals
 
-The specifications are stored in a separate file. It must be located under <doa-domain>/.well-known/dao.toml with CORS enabled. 
+The specifications are stored in a separate file. It must be located under ```<doa-domain>/.well-known/dao.toml``` with CORS enabled. 
 
 It is a toml file and must contain the following data fields:
 
@@ -100,7 +102,7 @@ SIGNATURE="..."
 
 ### Specification of the proposal
 
-The specifications are stored in a separate file.  The file must be stored and made available for access by the smart contract via a link (e.g. IPFS). The content of the file must not be changed after the creation of the proposal. This is ensured by a hash that is stored in the proposal account data. A link to the proposal specifications is passed as a parameter for each action of the contract (create, close, tally, execute). The integrity of the content is then checked in the smart contract based on the hash stored in the proposal account.
+The specifications are stored in a separate file. The file must be stored and made available for access by the smart contract via a link (e.g. IPFS). The content of the file must not be changed after the creation of the proposal. This is ensured by a hash that is stored in the proposal account data. A link to the proposal specifications is passed as a parameter for each action of the contract (create, close, tally, execute). The integrity of the content is then checked in the smart contract based on the hash stored in the proposal account.
 
 It is a toml file and must contain the following data fields:
 
@@ -111,13 +113,13 @@ It is a toml file and must contain the following data fields:
 | PROPOSAL_DESCRIPTION| required |Description of the proposal to be displayed to the voter. markdown|
 | PROPOSAL_CONTACT_EMAIL| required |Contact email address of the creator of this proposal.|
 | PROPOSAL_DISCUSSION_LINK| required |Link to the official discussion forum for this proposal (e.g. link to discord server)|
-| PROPOSAL_VOTING_TOKEN| required |must be the same as DAO_VOTING_TOKEN from dao.toml on proposal creation.|
-| PROPOSAL_DURATION_SECONDS| required |must be greater or equal to MIN_VOTING_DURATION_SECONDS from dao.toml on proposal creation.|
-| PROPOSAL_MIN_VOTING_POWER_CREATE_QUORUM| must be greater or equal to MIN_VOTING_POWER_CREATE_QUORUM from dao.toml on proposal creation.|
+| PROPOSAL_VOTING_TOKEN| required |Must be the same as DAO_VOTING_TOKEN from dao.toml on proposal creation.|
+| PROPOSAL_DURATION_SECONDS| required |Must be greater or equal to MIN_VOTING_DURATION_SECONDS from dao.toml on proposal creation.|
+| PROPOSAL_MIN_VOTING_POWER_CREATE_QUORUM|required | Must be greater or equal to MIN_VOTING_POWER_CREATE_QUORUM from dao.toml on proposal creation.|
 | QUORUM_STATIC| optional |Same as QUORUM_STATIC field in dao.toml on proposal creation. If QUORUM_PERCENT_CIRCULATION is set in DAO rules, it will be converted to QUORUM_STATIC on proposal creation based based on token balances at that time.|
 | PROPOSAL_VOTING_OPTIONS| required |The voting options|
 
-Each votin option must contain following data fields
+Each voting option must contain following data fields
 
 | Field name | Mandatory | Description |
 | :--- | :--- | :--- |
@@ -141,8 +143,8 @@ label="one"
 value="vote for one"
 xdr="AAAAAgAAAAAzmy8imtejMIgSbMMXk9hGT0JwJAYgqSa6qUHsfvTOAwAAAGQAFDXMAAAAAQAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAQAAAABjI7vSXjmgz0+a3XZS/qPXSjVpkiTnnDovaOi12CdJ2AAAAAAAAAAABfXhAAAAAAAAAAAA"
 [[PROPOSAL_VOTING_OPTIONS]]
-label="one"
-value="vote for one"
+label="two"
+value="vote for two"
 xdr="AAAAAgAAAAAzmy8imtejMIgSbMMXk9hGT0JwJAYgqSa6qUHsfvTOAwAAAGQAFDXMAAAAAQAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAQAAAABjI7vSXjmgz0+a3XZS/qPXSjVpkiTnnDovaOi12CdJ2AAAAAAAAAAAC+vCAAAAAAAAAAAA"
 ```
 
@@ -158,7 +160,7 @@ The smart contract must be uploaded to 5 turret servers. When uploading, a speci
 - *signers*: 5 turret signers provided by parameter and 3 DAO rescue signers from dao.toml:PROPOSAL_ACCOUNT_RESCUE_SIGNERS, each having a weight of 1
 - *master key weight*: 0
 - *thresholds*: all set to 3
-- *data entries*: ```staus="active"```, ```proposal_data_hash="..."```
+- *data entries*: ```staus="active"```, ```proposal_data_hash="..."```, ```proposal_data_link="..."```
 #### 2.b. let the proposal account trust the voting tokens
 #### 2.c. create a selling offer for each proposal option
 - *selling*: "OPTION[x]:proposal_account_id" tokens 
@@ -168,7 +170,7 @@ The smart contract must be uploaded to 5 turret servers. When uploading, a speci
 #### 2.d. create a payment of voting tokens from the source account to the proposal account (bond)
 - *amount*: as specified in CREATE_PROPOSAL_BOND
 #### 2.e. create small a payment of XLM from the nonce account to the proposal account
-- this is to make sure that the xdr can only be send to the stellar network if signed by min 3 turret signers.
+- this is to make sure that the xdr can only be send to the stellar network if signed by min. 3 turret signers.
 
 ## Voting
 
@@ -183,13 +185,13 @@ Other **parameters** are:
 - proposal account id - see [create proposal](#-create-proposal)
 - a link to the specific configuration of the proposal - see [proposal data specification](#specification-of-the-proposal)
 
-The **XDR** resulting from the execution of the contract is signed by the turret servers and has to be also signed by the user with the signer(s) of the source account before submitted to the stellar network.  
+The **XDR** resulting from the execution of the contract action ```close``` is signed by the turret servers and has to be also signed by the user with the signer(s) of the source account before submitted to the stellar network.  
 
 ### Contract logic of the close proposal action
 
 #### 1. validate parameters and data
 #### 2. delete offers if the proposal can be closed (check duration)
-#### 3. set status to closed in data entry of proposal account
+#### 3. set status to closed in the data entry of the proposal account
 
 
 ## Tally proposal
@@ -198,10 +200,10 @@ To count the votes of a closed proposal the user has to execute the smart contra
 
 Other **parameters** are:
 - account id of the source account used to finance this operation (executors account)
-- proposal account id - see [create proposal](#-create-proposal)
+- proposal account id - see [create proposal](#create-proposal)
 - a link to the specific configuration of the proposal - see [proposal data specification](#specification-of-the-proposal)
 
-The **XDR** resulting from the execution of the contract is signed by the turret servers and has to be also signed by the user with the signer(s) of the source account before submitted to the stellar network.  
+The **XDR** resulting from the execution of the contract action ```tally``` is signed by the turret servers and has to be also signed by the user with the signer(s) of the source account before submitted to the stellar network.  
 
 ### Contract logic of the tally proposal action
 
@@ -213,19 +215,18 @@ The **XDR** resulting from the execution of the contract is signed by the turret
 - *buying*: "OPTION[x]:proposal_account_id" tokens 
 - *amount*: calculated by query horizon assets endpoint
 - *price:* 1.0
-#### 5. create a payment operation to send the bond back to the creator
-#### 6. merge nonce account into source account
+#### 5. create a payment operation to send the bond back to the proposal creator
+#### 6. merge nonce account into source account of the proposal creator
 
 ## Execute proposal
 
 For execution of a finished proposal the user has to call the smart contract with the action parameter set to ```action='execute'```. 
 
 Other **parameters** are:
-- account id of the source account used to finance this operation (executors account)
 - proposal account id - see [create proposal](#-create-proposal)
 - a link to the specific configuration of the proposal - see [proposal data specification](#specification-of-the-proposal)
 
-The **XDR** resulting from the execution of the contract is signed by the turret servers.
+The **XDR** resulting from the execution of the contract action ```execute``` is signed by the turret servers.
 
 ### Contract logic of the execution proposal action
 
