@@ -69,8 +69,10 @@ It is a toml file and must contain the following data fields:
 | DAO_URL| required |Link to the official home page of the DAO.|
 | PROPOSAL_VOTING_TOKEN| required |Canonical form of the token to be used for votion on proposals. (e.g. "GOV:GBNOMH3B6BIQE65TZVVBNOCTMLN7MYORU5GX6YNBX5YBGCI45R2EMGOV")|
 | CREATE_PROPOSAL_BOND| required |The amount of voting tokens the creator of the proposal must stake to be allowed to create the proposal.|
-| MIN_VOTING_POWER_CREATE_QUORUM| required |The minimum amount of tokens (votes) an option must receive to win the proposal.|
-| MIN_VOTING_DURATION_SECONDS| required |The minimum number of seconds that a proposal must be active.|
+| QUORUM_STATIC| optional |A proposal must have at least this number of total voting tokens casted for the winning option to be deemed valid. If not set, the option with highest votes wins unconditionally. If set, a proposal with not enough votes by the deadline fails unconditionally. |
+| QUORUM_PERCENT_CIRCULATION| optional |Similar to QUORUM_STATIC, except the quorum is defined as a percent of the circulating supply. Circulating supply = Total Supply - Total Balance of NON_VOTING_ACCOUNTS |
+| NON_VOTING_ACCOUNTS| optional |A list of addresses whoses balances should be removed for the purpose of circulating supply calculation. These are typically "foundation" or holding accounts. |
+| MIN_VOTING_DURATION_SECONDS| required |The minimum number of seconds that a proposal must be active (can receive votes).|
 | PROPOSAL_ACCOUNT_RESCUE_SIGNERS| required |A list of 3 signers that can be used by the DAO to control a proposal account in case of emergency.|
 | DAO_PUBLIC_KEY| required |The DAO public key used to sign the fields of this file (shown above)|
 | SIGNATURE| required |The signature resulting from signing the data with the DAO public key.|
@@ -85,7 +87,7 @@ DAO_OFFICIAL_EMAIL="hi@testdao.org"
 DAO_URL="https://testdao.org"
 DAO_VOTING_TOKEN="GOV:GBNOMH3B6BIQE65TZVVBNOCTMLN7MYORU5GX6YNBX5YBGCI45R2EMGOV"
 CREATE_PROPOSAL_BOND="100"
-MIN_VOTING_POWER_CREATE_QUORUM="40000"
+QUORUM_STATIC="40000"
 MIN_VOTING_DURATION_SECONDS="300"
 PROPOSAL_ACCOUNT_RESCUE_SIGNERS=[
 "GCBY2B7KKVE4T66B4ZECNLOYT3Y772GHJTATP33IDUSYXTZSJNNYRWX5",
@@ -112,7 +114,7 @@ It is a toml file and must contain the following data fields:
 | PROPOSAL_VOTING_TOKEN| required |must be the same as DAO_VOTING_TOKEN from dao.toml on proposal creation.|
 | PROPOSAL_DURATION_SECONDS| required |must be greater or equal to MIN_VOTING_DURATION_SECONDS from dao.toml on proposal creation.|
 | PROPOSAL_MIN_VOTING_POWER_CREATE_QUORUM| must be greater or equal to MIN_VOTING_POWER_CREATE_QUORUM from dao.toml on proposal creation.|
-| PROPOSAL_QUORUM_CRITERIA| optional |fixed or dynamic (tbd)|
+| QUORUM_STATIC| optional |Same as QUORUM_STATIC field in dao.toml on proposal creation. If QUORUM_PERCENT_CIRCULATION is set in DAO rules, it will be converted to QUORUM_STATIC on proposal creation based based on token balances at that time.|
 | PROPOSAL_VOTING_OPTIONS| required |The voting options|
 
 Each votin option must contain following data fields
@@ -133,8 +135,7 @@ PROPOSAL_CONTACT_EMAIL="hi@testdao.org"
 PROPOSAL_DISCUSSION_LINK="https://testdao.org"
 PROPOSAL_VOTING_TOKEN="GOV:GBNOMH3B6BIQE65TZVVBNOCTMLN7MYORU5GX6YNBX5YBGCI45R2EMGOV"
 PROPOSAL_DURATION_SECONDS="3000"
-MIN_VOTING_POWER_CREATE_QUORUM="40000"
-PROPOSAL_QUORUM_CRITERIA="fixed"
+QUORUM_STATIC="40000"
 [[PROPOSAL_VOTING_OPTIONS]]
 label="one"
 value="vote for one"
