@@ -1,0 +1,50 @@
+[
+    {
+        "name": "action",
+        "type": "string",
+        "description": "action to execute. Possible values are: create, close, tally, execute",
+        "rule": "Required"
+    },
+    {
+        "name": "sourceAccountId",
+        "type": "string",
+        "description": "Account id of the executor.",
+        "rule": "Required"
+    },
+    {
+        "name": "nonceAccountId",
+        "type": "string",
+        "description": "Account id of a nonce account that is controlled by the turret signers and has min. 3.6 XLM. Required for create action.",
+        "rule": "Optional"
+    },
+    {
+        "name": "proposalSecret",
+        "type": "string",
+        "description": "Secret key for proposal account. Required for create action.",
+        "rule": "Optional"
+    },
+    {
+        "name": "proposalAccountId",
+        "type": "string",
+        "description": "Account id of the proposal account. Required for: close, tally and execute.",
+        "rule": "Optional"
+    },
+    {
+        "name": "proposalLink",
+        "type": "string",
+        "description": "Link to Proposal Data Structure. Max 64 chars.",
+        "rule": "Required"
+    },
+    {
+        "name": "turretSigners",
+        "type": "string",
+        "description": "List of turret contract signers of the proposal account. Required for create.",
+        "rule": "Optional"
+    },
+    {
+        "name": "daoTomlHost",
+        "type": "string",
+        "description": "Link to DAO address wich publishes <daoTomlHost>/.well-known/dao.toml. Required for create.",
+        "rule": "Optional"
+    }
+]

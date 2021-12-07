@@ -37,7 +37,7 @@ module.exports = async (body) => {
 
         default:
             throw {
-                message: 'Invalid stage.'
+                message: 'Invalid action. Options are: create, close, tally and execute.'
             }
     }
 }
