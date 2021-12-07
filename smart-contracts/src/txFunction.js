@@ -153,8 +153,6 @@ async function createProposal(body) {
         }
     }
 
-    //const daoNonVotingAccounts = daoTomlData.NON_VOTING_ACCOUNTS;
-
     if (!daoTomlData.MIN_VOTING_DURATION_SECONDS) {
         throw {
             message: 'Invalid dao toml, missing MIN_VOTING_DURATION_SECONDS'
@@ -501,11 +499,12 @@ async function closeProposal(body) {
     page = await server.payments().forAccount(proposalAccountId).order("asc").call();
     if (typeof page === "undefined" ||
         typeof page.records === "undefined" ||
-        page.records.length == 0) {
+        page.records.length < 3) { // create_account, payment native from nonce account, payment of bond from creator with voting token.
         throw {
             message: 'Error loading payments for proposal account.'
         }
     }
+
     const createdAtTimeSeconds = Math.floor(Date.parse(page.records[0].created_at) / 1000);
 
     // check if endTime is reached.
@@ -514,6 +513,12 @@ async function closeProposal(body) {
             message: 'voting time not finished. ' + (createdAtTimeSeconds + durationSeconds - currentTimeSeconds) + ' seconds left.'
         }
     }
+
+    // parse nonce account id to be merged back into the initial source account
+    let nonceAccountId = page.records[1].source_account;
+
+    // parse creator account to merge nonce account back into it.
+    let creatorAccountId = page.records[2].source_account;
 
     // read voting token
     if (!proposalTomlData.PROPOSAL_VOTING_TOKEN) {
@@ -582,6 +587,17 @@ async function closeProposal(body) {
             offerId: offers[i].id
         }));
     }
+
+    // merge nonce account into creator account if creator account and nonce account still exists
+    try {
+        await server.loadAccount(creatorAccountId);
+        await server.loadAccount(nonceAccountId);
+        transaction.addOperation(Operation.accountMerge({
+            source: nonceAccountId,
+            destination: creatorAccountId
+        }));
+    } catch (error) {}
+
     return transaction.setTimeout(0).build().toXDR('base64');
 };
 
@@ -755,10 +771,75 @@ async function tallyProposal(body) {
 async function executeProposal(body) {
     const {
         source,
-        proposalAccountId
+        proposalAccountId,
+        proposalLink
     } = body
 
-    return 'todo'
+    const proposalAccount = await server.loadAccount(proposalAccountId);
+
+    // check if proposal is finished
+    if (typeof proposalAccount.data_attr.status !== "undefined") {
+        const status = Buffer.from(proposalAccount.data_attr.status, 'base64').toString('utf-8');
+        if (status !== "finished") {
+            throw {
+                message: 'proposal status not finished'
+            }
+        }
+    } else {
+        throw {
+            message: 'invalid proposal account, missing status data entry.'
+        }
+    }
+
+    // load winner option
+    let winnerOption = -1;
+    if (typeof proposalAccount.data_attr.winnerOption !== "undefined") {
+        const winnerOptionStr = Buffer.from(proposalAccount.data_attr.winnerOption, 'base64').toString('utf-8');
+        const winnerOptionInt = parseInt(winnerOptionStr) || 0;
+        if (winnerOptionInt <= 0) {
+            throw {
+                message: 'invalid winnerOption in proposal account data entry.'
+            }
+        }
+        winnerOption = winnerOptionInt;
+    } else {
+        throw {
+            message: 'invalid proposal account, missing winnerOption data entry.'
+        }
+    }
+
+    // load, parse and verify proposal data
+    const proposalTomlStr = await fetchToml(proposalLink);
+    const shajs = require('sha.js')
+    const calculatedProposalHash = shajs('sha256').update(proposalTomlStr).digest('hex');
+    if (typeof proposalAccount.data_attr.proposalDataHash !== "undefined") {
+        const proposalHashFromAccount = Buffer.from(proposalAccount.data_attr.proposalDataHash, 'base64').toString('utf-8');
+        if (calculatedProposalHash != proposalHashFromAccount) {
+            throw {
+                message: 'invalid proposal data. hash does not match to proposal account entry.'
+            }
+        }
+    } else {
+        throw {
+            message: 'invalid proposal account, missing proposalDataHash data entry.'
+        }
+    }
+
+    const toml = require('toml');
+    const proposalTomlData = toml.parse(proposalTomlStr);
+    if (!proposalTomlData.PROPOSAL_VOTING_OPTIONS) {
+        throw {
+            message: 'Invalid proposal toml, missing PROPOSAL_VOTING_OPTIONS'
+        }
+    }
+    const votingOptions = proposalTomlData.PROPOSAL_VOTING_OPTIONS;
+
+    if (winnerOption - 1 < votingOptions.length) {
+        return votingOptions[winnerOption - 1].xdr;
+    }
+    throw {
+        message: 'Invalid winner option ' + winnerOption
+    }
 };
 
 async function fetchDAOToml(host) {

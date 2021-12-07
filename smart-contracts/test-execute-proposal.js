@@ -20,7 +20,7 @@ const fs = require('fs')
       require: {
         builtin: ['util'],
         external: {
-          modules: ['bignumber.js', 'node-fetch', 'stellar-sdk', 'lodash']
+          modules: ['bignumber.js', 'node-fetch', 'stellar-sdk', 'lodash', 'toml', 'sha']
         },
         context: 'host',
       }
@@ -30,8 +30,8 @@ const fs = require('fs')
     const result = await vm.run(txFunctionCode, 'vm.js')({
       action: 'execute',
       source: 'GDAWI5ID5QDM26GVEWNT2SLG4OBUFWHCOJ6BEVSPWLQLWFFRTOT3AGUG', // SBLWS3VCF5DZKGZEHRWD3SABAILWNNZGMKSUSMLQ4YFGY5BL6LP2GKVL
-      proposalAccountId: 'GBHSPRTBR53Y2B7APJWUJ3RDA2YZGEX2CEDNMGAJSPIFGDKGOMNM7WIN',
-      network: 'test'
+      proposalAccountId: 'GAZLSLUBPSQQTP2MBJ7WESXBOBKGDIWHZ5ZOAA5ZNLJCEYNWREROMARJ',
+      proposalLink: 'https://bit.ly/3GqrozZ'
     })
   
     console.log(result)

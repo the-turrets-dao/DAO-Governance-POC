@@ -191,7 +191,7 @@ The **XDR** resulting from the execution of the contract action ```close``` is s
 #### 1. validate parameters and data
 #### 2. delete offers if the proposal can be closed (check duration)
 #### 3. set status to closed in the data entry of the proposal account
-
+#### 4. merge nonce account into source account of the proposal creator (if exists)
 
 ## Tally proposal
 
@@ -215,7 +215,6 @@ The **XDR** resulting from the execution of the contract action ```tally``` is s
 - *amount*: calculated by query horizon assets endpoint
 - *price:* 1.0
 #### 5. create a payment operation to send the bond back to the proposal creator
-#### 6. merge nonce account into source account of the proposal creator
 
 ## Execute proposal
 
