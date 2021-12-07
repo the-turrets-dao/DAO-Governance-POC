@@ -231,5 +231,5 @@ The **XDR** resulting from the execution of the contract action ```execute``` is
 #### 1. validate parameters and data
 #### 2. load and return the winner option xdr from the proposal data
 
-## Test curretnt version
+## Test current version
 You can find a description here on how to [test the smart contract locally](smart-contracts/).
