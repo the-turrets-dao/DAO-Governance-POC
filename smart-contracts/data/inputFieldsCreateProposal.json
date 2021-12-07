@@ -1,14 +1,20 @@
 [
     {
-        "name": "daoHome",
+        "name": "action",
         "type": "string",
-        "description": "Link to DAO address wich publishes <daoHome>/.well-known/dao.toml.",
+        "description": "value: create",
         "rule": "Required"
     },
     {
-        "name": "source",
+        "name": "sourceAccountId",
         "type": "string",
         "description": "Account id of proposer, which will be used to fund ephemeral accounts.",
+        "rule": "Required"
+    },
+    {
+        "name": "nonceAccountId",
+        "type": "string",
+        "description": "Account id of a nonce account that is controlled by the turret signers and has min. 3.6 XLM",
         "rule": "Required"
     },
     {
@@ -24,15 +30,15 @@
         "rule": "Required"
     },
     {
-        "name": "IpfsProposalAddr",
+        "name": "daoTomlHost",
         "type": "string",
-        "description": "Address of Proposal Data Structure",
+        "description": "Link to DAO address wich publishes <daoTomlHost>/.well-known/dao.toml.",
         "rule": "Required"
     },
     {
-        "name": "network",
+        "name": "proposalLink",
         "type": "string",
-        "description": "Stellar network (test or public).",
+        "description": "Link to Proposal Data Structure. Max 64 chars.",
         "rule": "Required"
     }
 ]

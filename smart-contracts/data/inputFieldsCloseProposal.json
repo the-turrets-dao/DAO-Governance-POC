@@ -1,0 +1,26 @@
+[
+    {
+        "name": "action",
+        "type": "string",
+        "description": "value: close",
+        "rule": "Required"
+    },
+    {
+        "name": "sourceAccountId",
+        "type": "string",
+        "description": "Account id of proposer, which will be used to fund the action.",
+        "rule": "Required"
+    },
+    {
+        "name": "proposalAccountId",
+        "type": "string",
+        "description": "Account id of the proposal account.",
+        "rule": "Required"
+    },
+    {
+        "name": "proposalLink",
+        "type": "string",
+        "description": "Link to Proposal Data Structure. Max 64 chars.",
+        "rule": "Required"
+    }
+]

@@ -54,19 +54,19 @@ async function createProposal(body) {
 
     // load and parse dao.toml
     const daoTomlStr = await fetchDAOToml(daoTomlHost);
-    var toml = require('toml');
-    var daoTomlData = toml.parse(daoTomlStr);
+    const toml = require('toml');
+    const daoTomlData = toml.parse(daoTomlStr);
     //console.dir(daoTomlData);
 
     // verify signature
-    let daoSignature = daoTomlData.SIGNATURE;
+    const daoSignature = daoTomlData.SIGNATURE;
     if (!daoSignature) {
         throw {
             message: 'Invalid dao toml, missing SIGNATURE.'
         }
     }
 
-    let daoPublicKey = daoTomlData.DAO_PUBLIC_KEY;
+    const daoPublicKey = daoTomlData.DAO_PUBLIC_KEY;
 
     if (!daoPublicKey) {
         throw {
@@ -80,7 +80,7 @@ async function createProposal(body) {
         }
     }
 
-    var allDaoTomlLines = daoTomlStr.split('\n');
+    const allDaoTomlLines = daoTomlStr.split('\n');
     let linesWithoutSignature = new Array();
     for (const line of allDaoTomlLines) {
         if (!line.startsWith("SIGNATURE")) {
@@ -88,10 +88,10 @@ async function createProposal(body) {
         }
     }
 
-    let daoTomlDataWithoutSignature = linesWithoutSignature.join('\n');
-    let daoDataBuffer = Buffer.from(daoTomlDataWithoutSignature, 'utf8');
-    let daoKeyPair = Keypair.fromPublicKey(daoPublicKey);
-    let daoSignatureBuffer = Buffer.from(daoSignature, 'base64')
+    const daoTomlDataWithoutSignature = linesWithoutSignature.join('\n');
+    const daoDataBuffer = Buffer.from(daoTomlDataWithoutSignature, 'utf8');
+    const daoKeyPair = Keypair.fromPublicKey(daoPublicKey);
+    const daoSignatureBuffer = Buffer.from(daoSignature, 'base64')
     let signatureValid = false;
     try {
         signatureValid = daoKeyPair.verify(daoDataBuffer, daoSignatureBuffer)
@@ -153,7 +153,7 @@ async function createProposal(body) {
         }
     }
 
-    //let daoNonVotingAccounts = daoTomlData.NON_VOTING_ACCOUNTS;
+    //const daoNonVotingAccounts = daoTomlData.NON_VOTING_ACCOUNTS;
 
     if (!daoTomlData.MIN_VOTING_DURATION_SECONDS) {
         throw {
@@ -168,7 +168,7 @@ async function createProposal(body) {
         }
     }
 
-    let daoRescueSigners = daoTomlData.PROPOSAL_ACCOUNT_RESCUE_SIGNERS;
+    const daoRescueSigners = daoTomlData.PROPOSAL_ACCOUNT_RESCUE_SIGNERS;
     if (!daoRescueSigners) {
         throw {
             message: 'Invalid dao toml, missing PROPOSAL_ACCOUNT_RESCUE_SIGNERS'
@@ -183,9 +183,9 @@ async function createProposal(body) {
 
     // load and parse proposal data
     const proposalTomlStr = await fetchToml(proposalLink);
-    var shajs = require('sha.js')
-    let proposalHash = shajs('sha256').update(proposalTomlStr).digest('hex');
-    var proposalTomlData = toml.parse(proposalTomlStr);
+    const shajs = require('sha.js')
+    const proposalHash = shajs('sha256').update(proposalTomlStr).digest('hex');
+    const proposalTomlData = toml.parse(proposalTomlStr);
     //console.dir(proposalTomlData);
 
     if (!proposalTomlData.PROPOSAL_VOTING_TOKEN) {
@@ -204,7 +204,7 @@ async function createProposal(body) {
         }
     }
 
-    let proposalVotingToken = new Asset(assetParts[0], assetParts[1]);
+    const proposalVotingToken = new Asset(assetParts[0], assetParts[1]);
 
     if (proposalVotingToken.code != daoVotingToken.code || proposalVotingToken.issuer != daoVotingToken.issuer) {
         throw {
@@ -248,7 +248,7 @@ async function createProposal(body) {
         }
     }
 
-    let proposalVotingOptions = proposalTomlData.PROPOSAL_VOTING_OPTIONS;
+    const proposalVotingOptions = proposalTomlData.PROPOSAL_VOTING_OPTIONS;
     if (!proposalVotingOptions) {
         throw {
             message: 'Invalid proposal toml, missing PROPOSAL_VOTING_OPTIONS'
@@ -280,8 +280,6 @@ async function createProposal(body) {
     const sourceAccount = await server.loadAccount(sourceAccountId);
 
     // validate source account
-    const sourceNativeBalance = parseFloat(sourceAccount.balances.find(b => b.asset_type == 'native').balance);
-
     const votingTokenBalanceLine = sourceAccount.balances.find(b => (b.asset_code == proposalVotingToken.code && b.asset_issuer == proposalVotingToken.issuer));
     if (!votingTokenBalanceLine) {
         throw {
@@ -334,10 +332,11 @@ async function createProposal(body) {
         networkPassphrase: Networks[STELLAR_NETWORK]
     });
 
+    const minBalanceOfProposalAccount = ((2 + nrOfVotingOptions + 12) * 0.5);
     // create proposal account
     transaction.addOperation(Operation.createAccount({
         destination: proposalAccountId,
-        startingBalance: "" + 10
+        startingBalance: "" + minBalanceOfProposalAccount
     }));
 
     // set status of the proposal account
@@ -414,8 +413,8 @@ async function createProposal(body) {
         highThreshold: 3
     }));
 
-    let maxBigNumber = new BigNumber(922337203685);
-    let offerAmount = maxBigNumber.minus(daoBondAmount).dividedBy(nrOfVotingOptions);
+    const maxBigNumber = new BigNumber(922337203685);
+    const offerAmount = maxBigNumber.minus(daoBondAmount).dividedBy(nrOfVotingOptions);
 
     // offer tokens for voting
     for (let i = 0; i < nrOfVotingOptions; i++) {
@@ -429,30 +428,14 @@ async function createProposal(body) {
         }));
     }
 
-    // load last ledger to set create time.
-    page = await server.ledgers().order("desc").limit(1).call();
-    if (typeof page === "undefined" ||
-    typeof page.records === "undefined" ||
-    page.records.length == 0) {
-        throw {
-            message: 'Error loading last ledger'
-        }
-    }
-    const lastLedger = page.records[0];
-    transaction.addOperation(Operation.manageData({
-        source: proposalAccountId,
-        name: "createdAt",
-        value: lastLedger.closed_at
-    }));
-
     return transaction.setTimeout(0).build().toXDR('base64');
 };
 
-/* must be updated for current concept version
 async function closeProposal(body) {
     const {
         source,
-        proposalAccountId
+        proposalAccountId,
+        proposalLink
     } = body
 
     const proposalAccount = await server.loadAccount(proposalAccountId);
@@ -471,45 +454,87 @@ async function closeProposal(body) {
         }
     }
 
-    // check if endTime is reached.
-    if (typeof proposalAccount.data_attr.endTime !== "undefined") {
-        const endTimeStr = Buffer.from(proposalAccount.data_attr.endTime, 'base64').toString('utf-8');
-        const endTimeInt = parseInt(endTimeStr) || 0;
-        if (endTimeInt == 0) {
+    // load, parse and verify proposal data
+    const proposalTomlStr = await fetchToml(proposalLink);
+    const shajs = require('sha.js')
+    const calculatedProposalHash = shajs('sha256').update(proposalTomlStr).digest('hex');
+    if (typeof proposalAccount.data_attr.proposalDataHash !== "undefined") {
+        const proposalHashFromAccount = Buffer.from(proposalAccount.data_attr.proposalDataHash, 'base64').toString('utf-8');
+        if (calculatedProposalHash != proposalHashFromAccount) {
             throw {
-                message: 'invalid proposal account, invalid end time stored in account data.'
-            }
-        }
-        const now = Math.floor(Date.now() / 1000);
-        if (now < endTimeInt) {
-            throw {
-                message: 'voting time not finished.'
+                message: 'invalid proposal data. hash does not match to proposal account entry.'
             }
         }
     } else {
         throw {
-            message: 'invalid proposal account, missing end time data entry.'
+            message: 'invalid proposal account, missing proposalDataHash data entry.'
+        }
+    }
+
+    const toml = require('toml');
+    const proposalTomlData = toml.parse(proposalTomlStr);
+    const duration = proposalTomlData.PROPOSAL_DURATION_SECONDS;
+    if (!duration) {
+        throw {
+            message: 'Invalid dao proposal, missing PROPOSAL_DURATION_SECONDS'
+        }
+    }
+    const durationSeconds = parseInt(duration) || 0;
+    if (durationSeconds <= 0) {
+        throw {
+            message: 'Invalid dao proposal data PROPOSAL_DURATION_SECONDS <= 0 or invalid.'
+        }
+    }
+
+    // load current time from last closed ledger to see if the proposal can be closed.
+    let page = await server.ledgers().order("desc").limit(1).call();
+    if (typeof page === "undefined" ||
+        typeof page.records === "undefined" ||
+        page.records.length == 0) {
+        throw {
+            message: 'Error loading last ledger'
+        }
+    }
+    const lastLedger = page.records[0];
+    const currentTime = lastLedger.closed_at;
+    const currentTimeSeconds = Math.floor(Date.parse(currentTime) / 1000);
+
+    page = await server.payments().forAccount(proposalAccountId).order("asc").call();
+    if (typeof page === "undefined" ||
+        typeof page.records === "undefined" ||
+        page.records.length == 0) {
+        throw {
+            message: 'Error loading payments for proposal account.'
+        }
+    }
+    const createdAtTimeSeconds = Math.floor(Date.parse(page.records[0].created_at) / 1000);
+
+    // check if endTime is reached.
+    if (currentTimeSeconds < createdAtTimeSeconds + durationSeconds) {
+        throw {
+            message: 'voting time not finished. ' + (createdAtTimeSeconds + durationSeconds - currentTimeSeconds) + ' seconds left.'
         }
     }
 
     // read voting token
-    let votingToken;
-    if (typeof proposalAccount.data_attr.votingToken !== "undefined") {
-        const votingTokenStr = Buffer.from(proposalAccount.data_attr.votingToken, 'base64').toString('utf-8');
-        const assetParts = votingTokenStr.split(':').map(function(item) {
-            return item.trim();
-        });
-        if (assetParts.length != 2) {
-            throw {
-                message: 'invalid proposal account, invalid voting token.'
-            }
-        }
-        votingToken = new Asset(assetParts[0], assetParts[1]);
-    } else {
+    if (!proposalTomlData.PROPOSAL_VOTING_TOKEN) {
         throw {
-            message: 'invalid proposal account, missing voting token data entry.'
+            message: 'Invalid proposal toml, missing PROPOSAL_VOTING_TOKEN'
         }
     }
+
+    assetParts = proposalTomlData.PROPOSAL_VOTING_TOKEN.split(':').map(function(item) {
+        return item.trim();
+    });
+
+    if (assetParts.length != 2) {
+        throw {
+            message: 'Invalid proposal toml, invalid voting token.'
+        }
+    }
+
+    const votingToken = new Asset(assetParts[0], assetParts[1]);
+
     // load all offers to be removed
     const offers = new Array();
     page = await server.offers().forAccount(proposalAccountId).call();
@@ -540,27 +565,11 @@ async function closeProposal(body) {
         networkPassphrase: Networks[STELLAR_NETWORK]
     });
 
-    transaction.addOperation(Operation.beginSponsoringFutureReserves({
-        source: source,
-        sponsoredId: proposalAccountId
-    }))
-
     // set status of the proposal account
     transaction.addOperation(Operation.manageData({
         source: proposalAccountId,
         name: "status",
         value: "closed"
-    }));
-
-    const closeTime = Math.floor(Date.now() / 1000);
-    transaction.addOperation(Operation.manageData({
-        source: proposalAccountId,
-        name: "closeTime",
-        value: "" + closeTime
-    }));
-
-    transaction.addOperation(Operation.endSponsoringFutureReserves({
-        source: proposalAccountId
     }));
 
     // remove existing offers
@@ -577,6 +586,7 @@ async function closeProposal(body) {
     return transaction.setTimeout(0).build().toXDR('base64');
 };
 
+/* must be updated for current concept version
 async function tallyProposal(body) {
     const {
         source,
