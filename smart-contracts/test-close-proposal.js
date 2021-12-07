@@ -30,7 +30,7 @@ const fs = require('fs')
     const result = await vm.run(txFunctionCode, 'vm.js')({
        action: 'close',
        source: 'GDAWI5ID5QDM26GVEWNT2SLG4OBUFWHCOJ6BEVSPWLQLWFFRTOT3AGUG', // SBLWS3VCF5DZKGZEHRWD3SABAILWNNZGMKSUSMLQ4YFGY5BL6LP2GKVL
-       proposalAccountId: 'GBCGZ3ZFSPNPWZOJ46IAXVKRVY4A3S6G7L244BJ3JRDCJU5DPB5OCTPS',
+       proposalAccountId: 'GDRGLQ5PW4CDEDJTDBGN3W4BADDA3PFFTZB67JOKTDKFHEPEHVW3QLD6',
        proposalLink: 'https://bit.ly/3dtkJse'
     })
   
