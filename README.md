@@ -40,7 +40,7 @@ The **XDR** resulting from the execution of the contract action ```create``` is 
 
 The source account must have enough XLM to pay for the creation and it must have enough voting tokens to fund the bond.
 
-- *balance*: tbd - approx 5-10 XLM to be able to finance the creation of the proposal
+- *balance*: (7 XLM + 0.5 XML * nr of voting options) to be able to finance the creation of the proposal
 - *balance*: voting tokens to be stacked as definded by CREATE_PROPOSAL_BOND (see [dao data specification](#dao-specifications-for-proposals))
 
 ### Nonce account controlled by the turrets
