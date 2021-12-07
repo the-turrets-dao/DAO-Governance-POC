@@ -1,4 +1,7 @@
 const {
+    default: BigNumber
+} = require('bignumber.js')
+const {
     TransactionBuilder,
     Server,
     Networks,
@@ -54,6 +57,52 @@ async function createProposal(body) {
     var toml = require('toml');
     var daoTomlData = toml.parse(daoTomlStr);
     //console.dir(daoTomlData);
+
+    // verify signature
+    let daoSignature = daoTomlData.SIGNATURE;
+    if (!daoSignature) {
+        throw {
+            message: 'Invalid dao toml, missing SIGNATURE.'
+        }
+    }
+
+    let daoPublicKey = daoTomlData.DAO_PUBLIC_KEY;
+
+    if (!daoPublicKey) {
+        throw {
+            message: 'Invalid dao toml, missing DAO_PUBLIC_KEY.'
+        }
+    }
+
+    if (!daoPublicKey.startsWith("G")) {
+        throw {
+            message: 'Invalid dao toml, invalid DAO_PUBLIC_KEY. Must start with G'
+        }
+    }
+
+    var allDaoTomlLines = daoTomlStr.split('\n');
+    let linesWithoutSignature = new Array();
+    for (const line of allDaoTomlLines) {
+        if (!line.startsWith("SIGNATURE")) {
+            linesWithoutSignature.push(line);
+        }
+    }
+
+    let daoTomlDataWithoutSignature = linesWithoutSignature.join('\n');
+    let daoDataBuffer = Buffer.from(daoTomlDataWithoutSignature, 'utf8');
+    let daoKeyPair = Keypair.fromPublicKey(daoPublicKey);
+    let daoSignatureBuffer = Buffer.from(daoSignature, 'base64')
+    let signatureValid = false;
+    try {
+        signatureValid = daoKeyPair.verify(daoDataBuffer, daoSignatureBuffer)
+    } catch (error) {
+        signatureValid = false;
+    }
+    if (!signatureValid) {
+        throw {
+            message: 'Invalid dao toml, invalid SIGNATURE'
+        }
+    }
 
     // validate dao.toml data
     if (!daoTomlData.PROPOSAL_VOTING_TOKEN) {
@@ -132,30 +181,10 @@ async function createProposal(body) {
         }
     }
 
-    let daoPublicKey = daoTomlData.DAO_PUBLIC_KEY;
-
-    if (!daoPublicKey) {
-        throw {
-            message: 'Invalid dao toml, missing DAO_PUBLIC_KEY.'
-        }
-    }
-
-    if (!daoPublicKey.startsWith("G")) {
-        throw {
-            message: 'Invalid dao toml, invalid DAO_PUBLIC_KEY. Must start with G'
-        }
-    }
-
-    let daoSignature = daoTomlData.SIGNATURE;
-    if (!daoSignature) {
-        throw {
-            message: 'Invalid dao toml, missing SIGNATURE.'
-        }
-    }
-    // todo: validate signature
-
     // load and parse proposal data
     const proposalTomlStr = await fetchToml(proposalLink);
+    var shajs = require('sha.js')
+    let proposalHash = shajs('sha256').update(proposalTomlStr).digest('hex');
     var proposalTomlData = toml.parse(proposalTomlStr);
     //console.dir(proposalTomlData);
 
@@ -329,7 +358,7 @@ async function createProposal(body) {
     transaction.addOperation(Operation.manageData({
         source: proposalAccountId,
         name: "proposalDataHash",
-        value: "todo"
+        value: proposalHash
     }));
 
     transaction.addOperation(Operation.payment({
@@ -337,6 +366,20 @@ async function createProposal(body) {
         destination: proposalAccountId,
         asset: Asset.native(),
         amount: '0.01'
+    }));
+
+    // let proposal account trust voting token.
+    transaction.addOperation(Operation.changeTrust({
+        source: proposalAccountId,
+        asset: proposalVotingToken
+    }));
+
+    //pay bond
+    transaction.addOperation(Operation.payment({
+        source: sourceAccountId,
+        destination: proposalAccountId,
+        asset: proposalVotingToken,
+        amount: "" + daoBondAmount
     }));
 
     // add turret signers to proposal account
@@ -371,11 +414,8 @@ async function createProposal(body) {
         highThreshold: 3
     }));
 
-    // trust voting token.
-    transaction.addOperation(Operation.changeTrust({
-        source: proposalAccountId,
-        asset: proposalVotingToken
-    }));
+    let maxBigNumber = new BigNumber(922337203685);
+    let offerAmount = maxBigNumber.minus(daoBondAmount).dividedBy(nrOfVotingOptions);
 
     // offer tokens for voting
     for (let i = 0; i < nrOfVotingOptions; i++) {
@@ -384,10 +424,27 @@ async function createProposal(body) {
             source: proposalAccountId,
             selling: new Asset(assetCode, proposalAccountId),
             buying: proposalVotingToken,
-            amount: "100000000000",
+            amount: offerAmount.toString(),
             price: 1
         }));
     }
+
+    // load last ledger to set create time.
+    page = await server.ledgers().order("desc").limit(1).call();
+    if (typeof page === "undefined" ||
+    typeof page.records === "undefined" ||
+    page.records.length == 0) {
+        throw {
+            message: 'Error loading last ledger'
+        }
+    }
+    const lastLedger = page.records[0];
+    transaction.addOperation(Operation.manageData({
+        source: proposalAccountId,
+        name: "createdAt",
+        value: lastLedger.closed_at
+    }));
+
     return transaction.setTimeout(0).build().toXDR('base64');
 };
 

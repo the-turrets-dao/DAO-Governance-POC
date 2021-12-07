@@ -20,7 +20,7 @@ const fs = require('fs')
       require: {
         builtin: ['util'],
         external: {
-          modules: ['bignumber.js', 'node-fetch', 'stellar-sdk', 'lodash']
+          modules: ['bignumber.js', 'node-fetch', 'stellar-sdk', 'lodash', 'sha']
         },
         context: 'host',
       }

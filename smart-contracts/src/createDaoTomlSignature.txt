@@ -1,0 +1,36 @@
+
+// sniplet for how to sign the dao toml data so that the validation will pass.
+const daoTomlStr = await fetchDAOToml(daoTomlHost);
+var allDaoTomlLines = daoTomlStr.split('\n');
+let linesWithoutSignature = new Array();
+for (const line of allDaoTomlLines) {
+    if(!line.startsWith("SIGNATURE")) {
+        linesWithoutSignature.push(line);
+    }
+}
+let daoTomlDataWithoutSignature = linesWithoutSignature.join('\n');
+let daoDataBuffer = Buffer.from(daoTomlDataWithoutSignature, 'utf8');
+let daoKeyPair = Keypair.fromSecret('SCLMFYDVD3SDTHXLQH2C67IJTBP63QQS6XZW6KXFNLURTZJHJDJSW7OK');
+let signature = daoKeyPair.sign(daoDataBuffer);
+console.dir(signature.toString('base64'));
+
+
+// used functions to fetch the data
+async function fetchDAOToml(host) {
+    const urlToml = host + '/.well-known/dao.toml';
+    return fetchToml(urlToml)
+};
+
+async function fetchToml(url) {
+    var fetch = require('node-fetch');
+
+    const response = await fetch(url)
+        .then(async (res) => {
+            if (res.ok)
+                return res.text()
+            else
+                throw await res.text()
+        })
+
+    return response
+};
