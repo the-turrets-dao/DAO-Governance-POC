@@ -238,3 +238,4 @@ You can find a description here on how to [test the smart contract](smart-contra
 
 - https://stellar-turrets-testnet.soneso.workers.dev/tx-functions/695b4a8cc86241b4e9a52422fbe1c4b28c85dbf69ff919ee8f9f6792b6e48564
 - https://stellar-turrets-testnet.turretsdao.workers.dev/tx-functions/695b4a8cc86241b4e9a52422fbe1c4b28c85dbf69ff919ee8f9f6792b6e48564
+- https://stellar-turrets-testnet.elisa.workers.dev/tx-functions/695b4a8cc86241b4e9a52422fbe1c4b28c85dbf69ff919ee8f9f6792b6e48564
