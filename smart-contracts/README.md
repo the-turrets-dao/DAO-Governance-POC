@@ -61,3 +61,8 @@ after running `> npm install` + `> npm run build`:
 ## more complex test
 
 use your own dao.toml, proposal data and accounts to test.
+
+## Turret servers running the contract
+
+- https://stellar-turrets-testnet.soneso.workers.dev/tx-functions/66d3a31aa0c0439fabd22c543088a5180400c3a9ff550a6347906bf1eac305ee
+- https://stellar-turrets-testnet.turretsdao.workers.dev/tx-functions/66d3a31aa0c0439fabd22c543088a5180400c3a9ff550a6347906bf1eac305ee
