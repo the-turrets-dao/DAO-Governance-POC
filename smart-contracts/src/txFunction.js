@@ -8,7 +8,8 @@ const {
     BASE_FEE,
     Keypair,
     Operation,
-    Asset
+    Asset,
+    hash
 } = require('stellar-sdk')
 
 const HORIZON_URL = 'https://horizon-testnet.stellar.org'
@@ -181,10 +182,10 @@ async function createProposal(body) {
 
     // load and parse proposal data
     const proposalTomlStr = await fetchToml(proposalLink);
-    const shajs = require('sha.js')
-    const proposalHash = shajs('sha256').update(proposalTomlStr).digest('hex');
+    //const shajs = require('sha.js')
+    //const proposalHash =  shajs('sha256').update(proposalTomlStr).digest('hex');
+    const proposalHash = hash(Buffer.from(proposalTomlStr, 'utf8')).toString('hex');
     const proposalTomlData = toml.parse(proposalTomlStr);
-    //console.dir(proposalTomlData);
 
     if (!proposalTomlData.PROPOSAL_VOTING_TOKEN) {
         throw {
@@ -453,8 +454,7 @@ async function closeProposal(body) {
 
     // load, parse and verify proposal data
     const proposalTomlStr = await fetchToml(proposalLink);
-    const shajs = require('sha.js')
-    const calculatedProposalHash = shajs('sha256').update(proposalTomlStr).digest('hex');
+    const calculatedProposalHash = hash(Buffer.from(proposalTomlStr, 'utf8')).toString('hex');
     if (typeof proposalAccount.data_attr.proposalDataHash !== "undefined") {
         const proposalHashFromAccount = Buffer.from(proposalAccount.data_attr.proposalDataHash, 'base64').toString('utf-8');
         if (calculatedProposalHash != proposalHashFromAccount) {
@@ -519,6 +519,8 @@ async function closeProposal(body) {
 
     // parse creator account to merge nonce account back into it.
     let creatorAccountId = page.records[2].source_account;
+
+    let bondAmount = page.records[2].amount;
 
     // read voting token
     if (!proposalTomlData.PROPOSAL_VOTING_TOKEN) {
@@ -589,8 +591,9 @@ async function closeProposal(body) {
     }
 
     // merge nonce account into creator account if creator account and nonce account still exists
+    let creatorAccount;
     try {
-        await server.loadAccount(creatorAccountId);
+        creatorAccount = await server.loadAccount(creatorAccountId);
         await server.loadAccount(nonceAccountId);
         transaction.addOperation(Operation.accountMerge({
             source: nonceAccountId,
@@ -598,6 +601,15 @@ async function closeProposal(body) {
         }));
     } catch (error) {}
 
+    // send back the bond to the creator account if it exists
+    if (creatorAccount) {
+        transaction.addOperation(Operation.payment({
+            source: proposalAccountId,
+            destination: creatorAccountId,
+            asset: votingToken,
+            amount: bondAmount
+        }));
+    }
     return transaction.setTimeout(0).build().toXDR('base64');
 };
 
@@ -626,8 +638,7 @@ async function tallyProposal(body) {
 
     // load, parse and verify proposal data
     const proposalTomlStr = await fetchToml(proposalLink);
-    const shajs = require('sha.js')
-    const calculatedProposalHash = shajs('sha256').update(proposalTomlStr).digest('hex');
+    const calculatedProposalHash = hash(Buffer.from(proposalTomlStr, 'utf8')).toString('hex')
     if (typeof proposalAccount.data_attr.proposalDataHash !== "undefined") {
         const proposalHashFromAccount = Buffer.from(proposalAccount.data_attr.proposalDataHash, 'base64').toString('utf-8');
         if (calculatedProposalHash != proposalHashFromAccount) {
@@ -810,8 +821,7 @@ async function executeProposal(body) {
 
     // load, parse and verify proposal data
     const proposalTomlStr = await fetchToml(proposalLink);
-    const shajs = require('sha.js')
-    const calculatedProposalHash = shajs('sha256').update(proposalTomlStr).digest('hex');
+    const calculatedProposalHash = hash(Buffer.from(proposalTomlStr, 'utf8')).toString('hex');
     if (typeof proposalAccount.data_attr.proposalDataHash !== "undefined") {
         const proposalHashFromAccount = Buffer.from(proposalAccount.data_attr.proposalDataHash, 'base64').toString('utf-8');
         if (calculatedProposalHash != proposalHashFromAccount) {
