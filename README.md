@@ -236,5 +236,5 @@ You can find a description here on how to [test the smart contract](smart-contra
 
 ## Turret servers running the contract
 
-- https://stellar-turrets-testnet.soneso.workers.dev/tx-functions/66d3a31aa0c0439fabd22c543088a5180400c3a9ff550a6347906bf1eac305ee
-- https://stellar-turrets-testnet.turretsdao.workers.dev/tx-functions/66d3a31aa0c0439fabd22c543088a5180400c3a9ff550a6347906bf1eac305ee
+- https://stellar-turrets-testnet.soneso.workers.dev/tx-functions/695b4a8cc86241b4e9a52422fbe1c4b28c85dbf69ff919ee8f9f6792b6e48564
+- https://stellar-turrets-testnet.turretsdao.workers.dev/tx-functions/695b4a8cc86241b4e9a52422fbe1c4b28c85dbf69ff919ee8f9f6792b6e48564
